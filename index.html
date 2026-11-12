@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalkulator Subnet IPv4 - SQA Edition</title>
+  <meta name="description" content="Kalkulator subnet berbasis web untuk menghitung network address, broadcast address, rentang host, dan jumlah host IPv4.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">🌐</div>
+        <div class="brand-text">
+          <h1>Kalkulator Subnet IPv4</h1>
+          <p>Kalkulasi akurat Network, Broadcast, Range Host, & Subnet Mask</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Ganti Tema">
+          <span id="themeIcon">🌙</span>
+          <span id="themeText">Mode Gelap</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="calculator">
+        <span>⚡ Kalkulator Utama</span>
+      </button>
+      <button class="tab-btn" data-tab="division">
+        <span>📑 Pembagian Subnet (FLSM)</span>
+      </button>
+      <button class="tab-btn" data-tab="sqa">
+        <span>🧪 SQA Test Runner</span>
+        <span class="tab-badge" id="testBadgeCount">50 Tests</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: KALKULATOR UTAMA -->
+    <main id="tab-calculator" class="tab-content active">
+      <!-- Input Card -->
+      <section class="card">
+        <!-- Quick Presets -->
+        <div class="presets-container">
+          <span class="presets-label">Preset Cepat:</span>
+          <button class="preset-chip" data-ip="192.168.1.10" data-prefix="24">192.168.1.10/24 (LAN Standar)</button>
+          <button class="preset-chip" data-ip="192.168.10.55" data-prefix="28">192.168.10.55/28 (Kantor Kecil)</button>
+          <button class="preset-chip" data-ip="172.16.50.10" data-prefix="16">172.16.50.10/16 (Kelas B)</button>
+          <button class="preset-chip" data-ip="10.0.5.1" data-prefix="8">10.0.5.1/8 (Kelas A)</button>
+          <button class="preset-chip" data-ip="10.10.10.1" data-prefix="30">10.10.10.1/30 (Point-to-Point)</button>
+          <button class="preset-chip" data-ip="192.168.1.2" data-prefix="31">192.168.1.2/31 (RFC 3021)</button>
+          <button class="preset-chip" data-ip="192.168.1.100" data-prefix="32">192.168.1.100/32 (Host Route)</button>
+        </div>
+
+        <!-- Input Form -->
+        <form id="subnetForm" onsubmit="return false;">
+          <div class="input-grid">
+            <!-- IP Input -->
+            <div class="form-group">
+              <label for="ipInput" class="form-label">
+                <span>Alamat IP (IPv4)</span>
+                <span class="form-label-hint">Dapat berupa format IP atau IP/Prefix</span>
+              </label>
+              <div class="input-wrapper">
+                <span class="input-icon">📍</span>
+                <input 
+                  type="text" 
+                  id="ipInput" 
+                  class="form-input" 
+                  placeholder="Contoh: 192.168.1.1 atau 192.168.1.1/24"
+                  value="192.168.1.10"
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+              </div>
+            </div>
+
+            <!-- Prefix Input & Dropdown -->
+            <div class="form-group">
+              <label for="prefixInput" class="form-label">
+                <span>Prefix Subnet (CIDR)</span>
+                <span class="form-label-hint">Rentang 0 - 32</span>
+              </label>
+              <div class="prefix-input-group">
+                <input 
+                  type="number" 
+                  id="prefixInput" 
+                  class="prefix-number-input" 
+                  min="0" 
+                  max="32" 
+                  value="24"
+                  title="Prefix CIDR (0-32)"
+                >
+                <select id="prefixSelect" class="prefix-select" title="Pilih Subnet Mask">
+                  <!-- Generated dynamically via JS -->
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slider Range -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Prefix Slider: <strong>/<span id="sliderValDisplay">24</span></strong></span>
+              <span>/0 (Internet) &rarr; /32 (Single Host)</span>
+            </div>
+            <input type="range" id="prefixSlider" class="prefix-slider" min="0" max="32" value="24">
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="form-actions">
+            <button type="button" id="btnCalculate" class="btn btn-primary">
+              <span>🚀 Hitung Subnet</span>
+            </button>
+            <button type="button" id="btnReset" class="btn btn-secondary">
+              <span>🔄 Reset</span>
+            </button>
+            <button type="button" id="btnCopySummary" class="btn btn-secondary">
+              <span>📋 Salin Ringkasan</span>
+            </button>
+
+            <label class="auto-calc-toggle" title="Hitung otomatis saat input diketik">
+              <input type="checkbox" id="autoCalcToggle" checked>
+              <span>Kalkulasi Otomatis (Live)</span>
+            </label>
+          </div>
+
+          <!-- Alert Error Box -->
+          <div id="alertError" class="alert-error" role="alert">
+            <span>⚠️</span>
+            <span id="errorMessage">Pesan error akan muncul di sini</span>
+          </div>
+        </form>
+      </section>
+
+      <!-- Special Notice Box (RFC 3021 / 32 / 0) -->
+      <div id="specialNoteBox" class="special-note-box">
+        <span id="specialNoteText"></span>
+      </div>
+
+      <!-- PRIMARY RESULTS (4 Output Utama Sesuai Permintaan) -->
+      <section class="primary-results-grid">
+        <!-- 1. Network Address -->
+        <div class="metric-card net">
+          <div class="metric-header">
+            <span class="metric-label">🌐 Network Address</span>
+            <button class="copy-btn" data-copy="resNetwork" title="Salin Network Address">📋</button>
+          </div>
+          <div class="metric-value" id="resNetwork">192.168.1.0</div>
+          <div class="metric-sub">Alamat identitas subnet / jaringan</div>
+        </div>
+
+        <!-- 2. Broadcast Address -->
+        <div class="metric-card bcast">
+          <div class="metric-header">
+            <span class="metric-label">📢 Broadcast Address</span>
+            <button class="copy-btn" data-copy="resBroadcast" title="Salin Broadcast Address">📋</button>
+          </div>
+          <div class="metric-value" id="resBroadcast">192.168.1.255</div>
+          <div class="metric-sub">Alamat broadcast ke semua host</div>
+        </div>
+
+        <!-- 3. Usable Host Range -->
+        <div class="metric-card range">
+          <div class="metric-header">
+            <span class="metric-label">🎯 Rentang Host (Usable)</span>
+            <button class="copy-btn" data-copy="resHostRange" title="Salin Rentang Host">📋</button>
+          </div>
+          <div class="metric-value" id="resHostRange" style="font-size: 1.15rem;">192.168.1.1 - 192.168.1.254</div>
+          <div class="metric-sub">Rentang IP yang dapat dipasang ke perangkat</div>
+        </div>
+
+        <!-- 4. Jumlah Host -->
+        <div class="metric-card hosts">
+          <div class="metric-header">
+            <span class="metric-label">👥 Jumlah Host Usable</span>
+            <button class="copy-btn" data-copy="resUsableHosts" title="Salin Jumlah Host">📋</button>
+          </div>
+          <div class="metric-value" id="resUsableHosts">254</div>
+          <div class="metric-sub">Dari total <strong id="resTotalHosts">256</strong> alamat IP (2<sup>H</sup> - 2)</div>
+        </div>
+      </section>
+
+      <!-- Technical Details Grid -->
+      <section class="card">
+        <h2 class="card-title">
+          <span>⚙️ Rincian Teknis & Parameter Subnet</span>
+          <span class="badge badge-class" id="resClassBadge">Kelas C</span>
+        </h2>
+        <div class="details-grid">
+          <table class="detail-table">
+            <tbody>
+              <tr>
+                <td class="label-col">Subnet Mask</td>
+                <td class="val-col" id="resSubnetMask">255.255.255.0</td>
+              </tr>
+              <tr>
+                <td class="label-col">Wildcard Mask</td>
+                <td class="val-col" id="resWildcardMask">0.0.0.255</td>
+              </tr>
+              <tr>
+                <td class="label-col">CIDR Notation</td>
+                <td class="val-col" id="resCidrNotation">/24</td>
+              </tr>
+              <tr>
+                <td class="label-col">Full Route CIDR</td>
+                <td class="val-col" id="resFullCidr">192.168.1.0/24</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table class="detail-table">
+            <tbody>
+              <tr>
+                <td class="label-col">Kelas IP</td>
+                <td class="val-col" id="resIpClass">Kelas C</td>
+              </tr>
+              <tr>
+                <td class="label-col">Kategori / Scope</td>
+                <td class="val-col">
+                  <span class="badge badge-private" id="resIpType">Private (RFC 1918)</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="label-col">Keterangan Scope</td>
+                <td class="val-col" id="resIpTypeNote" style="font-size: 0.8rem;">Alamat privat Class C (192.168.0.0/16)</td>
+              </tr>
+              <tr>
+                <td class="label-col">Bit Alokasi</td>
+                <td class="val-col"><span id="resNetBits">24</span> bit Net / <span id="resHostBits">8</span> bit Host</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Visual Bit Allocation Bar -->
+        <div class="bit-visual-container">
+          <div class="bit-bar-labels">
+            <span>🔵 Network Bits: <strong id="lblNetBits">24</strong> bit</span>
+            <span>🟢 Host Bits: <strong id="lblHostBits">8</strong> bit</span>
+          </div>
+          <div class="bit-bar">
+            <div id="bitBarNetwork" class="bit-segment-network" style="width: 75%;">24 Network Bits</div>
+            <div id="bitBarHost" class="bit-segment-host" style="width: 25%;">8 Host Bits</div>
+          </div>
+        </div>
+
+        <!-- Binary Representation Table -->
+        <h3 style="font-size: 0.95rem; font-weight: 700; margin-top: 16px; margin-bottom: 8px;">
+          🔢 Representasi Biner 32-Bit
+        </h3>
+        <div class="binary-table-wrapper">
+          <table class="binary-table">
+            <thead>
+              <tr>
+                <th>Deskripsi</th>
+                <th>Format Desimal</th>
+                <th>Format Biner (Oktet 1 . 2 . 3 . 4)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>IP Address</td>
+                <td id="binIpDec">192.168.1.10</td>
+                <td id="binIpBin">11000000.10101000.00000001.00001010</td>
+              </tr>
+              <tr>
+                <td>Subnet Mask</td>
+                <td id="binMaskDec">255.255.255.0</td>
+                <td id="binMaskBin">11111111.11111111.11111111.00000000</td>
+              </tr>
+              <tr>
+                <td>Wildcard Mask</td>
+                <td id="binWildDec">0.0.0.255</td>
+                <td id="binWildBin">00000000.00000000.00000000.11111111</td>
+              </tr>
+              <tr>
+                <td>Network Address</td>
+                <td id="binNetDec">192.168.1.0</td>
+                <td id="binNetBin">11000000.10101000.00000001.00000000</td>
+              </tr>
+              <tr>
+                <td>Broadcast Address</td>
+                <td id="binBcastDec">192.168.1.255</td>
+                <td id="binBcastBin">11000000.10101000.00000001.11111111</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- History Section -->
+      <section class="card" id="historyCard">
+        <div class="card-title">
+          <span>🕒 Riwayat Kalkulasi Terakhir</span>
+          <button id="btnClearHistory" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">Hapus Riwayat</button>
+        </div>
+        <div id="historyList" class="history-list">
+          <span style="color: var(--text-muted); font-size: 0.85rem;">Belum ada riwayat kalkulasi.</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: PEMBAGIAN SUBNET (FLSM) -->
+    <section id="tab-division" class="tab-content" style="display: none;">
+      <div class="card">
+        <h2 class="card-title">📑 Pembagian Subnet (Fixed Length Subnet Mask - FLSM)</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+          Bagi blok network saat ini menjadi beberapa subnet lebih kecil dengan prefix target.
+        </p>
+
+        <div class="flsm-control-bar">
+          <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Network Induk:</label>
+            <span id="flsmBaseNetwork" style="font-family: var(--font-mono); font-weight: 700; color: var(--primary);">192.168.1.0/24</span>
+          </div>
+
+          <div>
+            <label for="flsmTargetPrefix" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Bagi Menjadi Prefix:</label>
+            <select id="flsmTargetPrefix" class="form-input" style="padding: 8px 14px; font-family: var(--font-mono); width: auto;">
+              <!-- Options populated dynamically -->
+            </select>
+          </div>
+
+          <button id="btnDivideSubnet" class="btn btn-primary" style="margin-top: 18px;">
+            <span>Hitung Subnet Cabang</span>
+          </button>
+        </div>
+
+        <div id="flsmSummary" style="font-size: 0.875rem; margin-bottom: 12px; color: var(--text-muted);"></div>
+
+        <div class="flsm-table-container">
+          <table class="flsm-table">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Subnet CIDR</th>
+                <th>Rentang Host Usable</th>
+                <th>Broadcast Address</th>
+                <th>Jumlah Host</th>
+              </tr>
+            </thead>
+            <tbody id="flsmTableBody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SQA TEST SUITE RUNNER -->
+    <section id="tab-sqa" class="tab-content" style="display: none;">
+      <div class="card">
+        <div class="sqa-header-box">
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700;">🧪 Software Quality Assurance (SQA) Test Runner</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+              Pengujian otomatis menyeluruh mencakup <strong>Boundary Value Analysis (BVA)</strong> & <strong>Equivalence Partitioning (EP)</strong>.
+            </p>
+          </div>
+          <button id="btnRunSqaTests" class="btn btn-primary">
+            <span>▶ Jalankan Ulang Semua Test</span>
+          </button>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="sqa-stats-grid">
+          <div class="sqa-stat-card total">
+            <div class="sqa-stat-number" id="sqaStatTotal">50</div>
+            <div class="sqa-stat-label">Total Test Cases</div>
+          </div>
+          <div class="sqa-stat-card pass">
+            <div class="sqa-stat-number" id="sqaStatPass" style="color: var(--success);">50</div>
+            <div class="sqa-stat-label">Passed (Lulus)</div>
+          </div>
+          <div class="sqa-stat-card fail">
+            <div class="sqa-stat-number" id="sqaStatFail" style="color: var(--danger);">0</div>
+            <div class="sqa-stat-label">Failed (Gagal)</div>
+          </div>
+          <div class="sqa-stat-card">
+            <div class="sqa-stat-number" id="sqaStatTime" style="color: var(--primary);">4 ms</div>
+            <div class="sqa-stat-label">Waktu Eksekusi</div>
+          </div>
+        </div>
+
+        <!-- Test Case Results List -->
+        <div class="sqa-test-list" id="sqaTestList">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>
+        <strong>Kalkulator Subnet IPv4</strong> &bull; Dibuat untuk pemahaman jaringan & Software Quality Assurance (SQA).
+      </p>
+      <p style="margin-top: 6px;">
+        Mendukung standar CIDR, RFC 1918 (Private IP), RFC 3021 (/31 Point-to-Point), dan RFC 1122.
+      </p>
+    </footer>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/calculator.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+

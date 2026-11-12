@@ -1,0 +1,21 @@
+{
+  "name": "subnet-calculator-sqa",
+  "version": "1.0.0",
+  "description": "Kalkulator Subnet IPv4 berbasis web dengan pengujian Software Quality Assurance (BVA & Equivalence Partitioning)",
+  "main": "js/calculator.js",
+  "scripts": {
+    "test": "node test/subnet.test.js",
+    "start": "node -e \"const http=require('http'),fs=require('fs'),path=require('path');http.createServer((req,res)=>{let f=req.url==='/'?'index.html':req.url.slice(1);let p=path.join(__dirname,f);if(fs.existsSync(p)&&fs.statSync(p).isFile()){let m={'html':'text/html; charset=utf-8','css':'text/css','js':'text/javascript','json':'application/json'}[path.extname(p).slice(1)]||'text/plain';res.writeHead(200,{'Content-Type':m});fs.createReadStream(p).pipe(res);}else{res.writeHead(404);res.end('Not Found');}}).listen(3000,()=>console.log('Kalkulator Subnet berjalan di: http://localhost:3000'));\""
+  },
+  "keywords": [
+    "subnet",
+    "calculator",
+    "ipv4",
+    "sqa",
+    "cidr",
+    "networking"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
+
