@@ -316,11 +316,50 @@ def validate_vlsm_params(network_cidr: str, kebutuhan_host: list[int]) -> tuple[
 
 
 def alokasi_vlsm(network_cidr: str, kebutuhan_host: list[int]) -> list[dict]:
-    """Mengalokasikan blok-blok subnet variabel (VLSM) secara hierarkis.
+    """Mengalokasikan blok-blok subnet variabel (VLSM) secara hierarkis."""
+    base_ip, base_prefix = validate_vlsm_params(network_cidr, kebutuhan_host)
 
-    Belum diimplementasikan (Tahap RED TDD).
-    """
-    raise NotImplementedError("Fungsi alokasi_vlsm belum diimplementasikan")
+    sorted_kebutuhan = sorted(kebutuhan_host, reverse=True)
+
+    base_network_int = ip_to_int(base_ip)
+    total_parent_ips = 1 << (32 - base_prefix)
+    current_offset = 0
+
+    hasil_alokasi = []
+
+    for req in sorted_kebutuhan:
+        needed_ips = req + 2
+        block_size = 4
+        while block_size < needed_ips:
+            block_size <<= 1
+
+        sub_prefix = 32
+        temp_size = block_size
+        while temp_size > 1:
+            temp_size >>= 1
+            sub_prefix -= 1
+
+        if current_offset + block_size > total_parent_ips:
+            raise ValueError(
+                f"Kapasitas network induk {network_cidr} ({total_parent_ips} IP) "
+                f"tidak mencukupi untuk memenuhi kebutuhan host yang diminta."
+            )
+
+        sub_network_int = (base_network_int + current_offset) & 0xFFFFFFFF
+        sub_network_ip = int_to_ip(sub_network_int)
+
+        subnet_detail = hitung_subnet(sub_network_ip, sub_prefix)
+
+        alokasi_item = {
+            "kebutuhan": req,
+            "network_cidr": f"{sub_network_ip}/{sub_prefix}",
+            **subnet_detail,
+        }
+        hasil_alokasi.append(alokasi_item)
+
+        current_offset += block_size
+
+    return hasil_alokasi
 
 
 # ==============================================================================
@@ -390,7 +429,24 @@ def api_subnet(request: Request):
 @app.post("/api/vlsm")
 async def api_vlsm(request: Request):
     """Endpoint untuk melakukan alokasi subnet VLSM bertingkat."""
-    raise HTTPException(
-        status_code=501,
-        detail="Endpoint POST /api/vlsm belum diimplementasikan",
-    )
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Payload body harus berupa JSON yang valid")
+
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Payload JSON harus berupa object/dictionary")
+
+    if "network" not in body or "kebutuhan_host" not in body:
+        raise HTTPException(
+            status_code=400,
+            detail="Payload JSON wajib memiliki atribut 'network' dan 'kebutuhan_host'",
+        )
+
+    network = body.get("network")
+    kebutuhan_host = body.get("kebutuhan_host")
+
+    try:
+        return alokasi_vlsm(network, kebutuhan_host)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
