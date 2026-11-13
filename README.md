@@ -122,3 +122,37 @@ subnet-calculator-sqa/
     └── subnet.test.js    # Node.js automated test runner (50 test cases)
 ```
 
+---
+
+## 🐳 Docker
+
+Aplikasi ini telah dikemas menggunakan Docker dengan base image `python:3.12-slim` dan package manager `uv`.
+
+### 1. Build Container Image
+```bash
+docker build -t subnet-calculator .
+```
+
+### 2. Jalankan Container
+```bash
+docker run -d --name subnet-app -p 8000:8000 subnet-calculator
+```
+Aplikasi dapat diakses melalui peramban web pada alamat: [http://localhost:8000](http://localhost:8000)
+
+### 3. Menjalankan Smoke Test ke Container Lokal
+Pastikan container sedang berjalan, kemudian jalankan skrip smoke test:
+```bash
+uv run python scripts/smoke_test.py http://127.0.0.1:8000
+```
+atau menggunakan Python standar:
+```bash
+python scripts/smoke_test.py http://127.0.0.1:8000
+```
+
+### 4. Menghentikan dan Menghapus Container
+```bash
+docker stop subnet-app
+docker rm subnet-app
+```
+
+
