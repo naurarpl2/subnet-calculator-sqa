@@ -1,419 +1,1271 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kalkulator Subnet IPv4 - SQA Edition</title>
-  <meta name="description" content="Kalkulator subnet berbasis web untuk menghitung network address, broadcast address, rentang host, dan jumlah host IPv4.">
-  <link rel="stylesheet" href="style.css">
+  <title>NetCalc IPv4 & VLSM Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+            display: ['Google Sans', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'SFMono-Regular', 'Menlo', 'monospace'],
+          },
+          colors: {
+            google: {
+              blue: '#1a73e8',
+              blueHover: '#1557b0',
+              blueLight: '#e8f0fe',
+              blueBorder: '#d2e3fc',
+              red: '#d93025',
+              redLight: '#fce8e6',
+              green: '#1e8e3e',
+              greenLight: '#e6f4ea',
+              yellow: '#f9ab00',
+              grayBg: '#f8f9fa',
+              graySurface: '#ffffff',
+              grayBorder: '#dadce0',
+              grayText: '#3c4043',
+              graySecondary: '#5f6368',
+              grayDisabled: '#80868b',
+            }
+          },
+          boxShadow: {
+            'google-sm': '0 1px 2px 0 rgba(60,64,67,0.15), 0 1px 3px 1px rgba(60,64,67,0.08)',
+            'google-md': '0 1px 3px 0 rgba(60,64,67,0.2), 0 4px 8px 3px rgba(60,64,67,0.1)',
+            'google-hover': '0 2px 6px 2px rgba(60,64,67,0.15)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom tab indicator transition */
+    .tab-active {
+      color: #1a73e8;
+      border-bottom: 3px solid #1a73e8;
+      font-weight: 500;
+    }
+
+    .tab-inactive {
+      color: #5f6368;
+      border-bottom: 3px solid transparent;
+      font-weight: 400;
+    }
+
+    .tab-inactive:hover {
+      color: #202124;
+      background-color: #f1f3f4;
+    }
+
+    /* Subtle focus ring */
+    .g-input:focus {
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    /* Smooth transitions */
+    .fade-enter {
+      animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="brand">
-        <div class="brand-icon">🌐</div>
-        <div class="brand-text">
-          <h1>Kalkulator Subnet IPv4</h1>
-          <p>Kalkulasi akurat Network, Broadcast, Range Host, & Subnet Mask</p>
+
+<body
+  class="bg-google-grayBg text-google-grayText font-sans min-h-screen antialiased flex flex-col justify-between selection:bg-google-blueLight selection:text-google-blue">
+
+  <!-- Top App Navigation -->
+  <header class="bg-white border-b border-google-grayBorder sticky top-0 z-30 shadow-[0_1px_3px_0_rgba(60,64,67,0.08)]">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-google-blue flex items-center justify-center text-white shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-display font-medium text-lg sm:text-xl text-gray-900 tracking-tight leading-tight">NetCalc
+              IPv4</h1>
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-google-blueLight text-google-blue border border-google-blueBorder">Edu
+              Edition</span>
+          </div>
+          <p class="text-xs text-google-graySecondary hidden sm:block">Vocational Network & Systems Teacher Toolkit</p>
         </div>
       </div>
-      <div class="header-actions">
-        <button id="themeToggleBtn" class="theme-toggle-btn" title="Ganti Tema">
-          <span id="themeIcon">🌙</span>
-          <span id="themeText">Mode Gelap</span>
-        </button>
+
+      <!-- State quick-switcher preview pills for demonstration / testing -->
+      <div class="flex items-center gap-1.5 sm:gap-2 bg-gray-100 p-1 rounded-lg text-xs font-medium">
+        <span class="text-google-graySecondary hidden md:inline px-1">Presets:</span>
+        <button type="button" id="preset-btn-empty" onclick="setPreset('empty')"
+          class="px-2.5 py-1 rounded-md transition hover:bg-white text-google-graySecondary hover:text-gray-900 shadow-none hover:shadow-xs active:bg-white">Empty</button>
+        <button type="button" id="preset-btn-success" onclick="setPreset('success')"
+          class="px-2.5 py-1 rounded-md transition bg-white text-google-blue shadow-xs font-semibold">Success</button>
+        <button type="button" id="preset-btn-error" onclick="setPreset('error')"
+          class="px-2.5 py-1 rounded-md transition hover:bg-white text-google-red hover:shadow-xs">Error</button>
       </div>
-    </header>
+    </div>
 
     <!-- Navigation Tabs -->
-    <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="calculator">
-        <span>⚡ Kalkulator Utama</span>
-      </button>
-      <button class="tab-btn" data-tab="division">
-        <span>📑 Pembagian Subnet (FLSM)</span>
-      </button>
-      <button class="tab-btn" data-tab="sqa">
-        <span>🧪 SQA Test Runner</span>
-        <span class="tab-badge" id="testBadgeCount">50 Tests</span>
-      </button>
-    </nav>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <nav class="flex space-x-6 sm:space-x-8" aria-label="Calculator Modes">
+        <button id="tab-subnet-btn" onclick="switchTab('subnet')"
+          class="tab-active py-3.5 px-1 text-sm inline-flex items-center gap-2 focus:outline-none transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span>1. Subnet Calculator</span>
+        </button>
 
-    <!-- TAB 1: KALKULATOR UTAMA -->
-    <main id="tab-calculator" class="tab-content active">
+        <button id="tab-vlsm-btn" onclick="switchTab('vlsm')"
+          class="tab-inactive py-3.5 px-1 text-sm inline-flex items-center gap-2 focus:outline-none transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          <span>2. VLSM Subnetting</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1">
+
+    <!-- ========================================== -->
+    <!-- TAB 1: SUBNET CALCULATOR                   -->
+    <!-- ========================================== -->
+    <div id="subnet-panel" class="space-y-6 fade-enter">
       <!-- Input Card -->
-      <section class="card">
-        <!-- Quick Presets -->
-        <div class="presets-container">
-          <span class="presets-label">Preset Cepat:</span>
-          <button class="preset-chip" data-ip="192.168.1.10" data-prefix="24">192.168.1.10/24 (LAN Standar)</button>
-          <button class="preset-chip" data-ip="192.168.10.55" data-prefix="28">192.168.10.55/28 (Kantor Kecil)</button>
-          <button class="preset-chip" data-ip="172.16.50.10" data-prefix="16">172.16.50.10/16 (Kelas B)</button>
-          <button class="preset-chip" data-ip="10.0.5.1" data-prefix="8">10.0.5.1/8 (Kelas A)</button>
-          <button class="preset-chip" data-ip="10.10.10.1" data-prefix="30">10.10.10.1/30 (Point-to-Point)</button>
-          <button class="preset-chip" data-ip="192.168.1.2" data-prefix="31">192.168.1.2/31 (RFC 3021)</button>
-          <button class="preset-chip" data-ip="192.168.1.100" data-prefix="32">192.168.1.100/32 (Host Route)</button>
+      <section
+        class="bg-white rounded-2xl p-5 sm:p-7 border border-google-grayBorder shadow-google-sm transition duration-200">
+        <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div>
+            <h2 class="text-base sm:text-lg font-display font-medium text-gray-900">Standard IPv4 Subnet Parameters</h2>
+            <p class="text-xs sm:text-sm text-google-graySecondary">Calculate network boundaries, host ranges, and
+              binary representations for classroom instruction.</p>
+          </div>
+          <span
+            class="hidden sm:inline-flex items-center gap-1.5 text-xs text-google-graySecondary font-mono bg-google-grayBg px-2.5 py-1 rounded-md border border-gray-200">
+            <span class="w-2 h-2 rounded-full bg-google-green"></span> RFC 791 / 4632
+          </span>
         </div>
 
-        <!-- Input Form -->
-        <form id="subnetForm" onsubmit="return false;">
-          <div class="input-grid">
-            <!-- IP Input -->
-            <div class="form-group">
-              <label for="ipInput" class="form-label">
-                <span>Alamat IP (IPv4)</span>
-                <span class="form-label-hint">Dapat berupa format IP atau IP/Prefix</span>
+        <form id="subnet-form" onsubmit="event.preventDefault(); calculateSubnet();" class="mt-5 space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
+
+            <!-- IP Address Field -->
+            <div class="sm:col-span-8">
+              <label for="subnet-ip"
+                class="block text-xs font-semibold uppercase tracking-wider text-google-graySecondary mb-1.5">
+                IP Address <span class="text-google-red">*</span>
               </label>
-              <div class="input-wrapper">
-                <span class="input-icon">📍</span>
-                <input 
-                  type="text" 
-                  id="ipInput" 
-                  class="form-input" 
-                  placeholder="Contoh: 192.168.1.1 atau 192.168.1.1/24"
-                  value="192.168.1.10"
-                  autocomplete="off"
-                  spellcheck="false"
-                >
+              <div class="relative">
+                <input type="text" id="subnet-ip" value="192.168.10.45" placeholder="e.g. 192.168.1.1"
+                  class="g-input w-full px-3.5 py-2.5 text-sm sm:text-base font-mono bg-white border border-google-grayBorder rounded-xl text-gray-900 placeholder-gray-400 outline-none transition focus:border-google-blue"
+                  oninput="clearSubnetError('ip')" />
+                <button type="button" onclick="setSubnetDefault()"
+                  class="absolute right-3 top-2.5 text-xs text-google-blue hover:text-google-blueHover font-sans font-medium">Default</button>
               </div>
+              <!-- Error Container -->
+              <p id="subnet-ip-error" class="hidden mt-1.5 text-xs text-google-red flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clip-rule="evenodd" />
+                </svg>
+                <span id="subnet-ip-error-text">Please enter a valid IPv4 address (e.g., 10.0.0.1 or
+                  192.168.1.5).</span>
+              </p>
             </div>
 
-            <!-- Prefix Input & Dropdown -->
-            <div class="form-group">
-              <label for="prefixInput" class="form-label">
-                <span>Prefix Subnet (CIDR)</span>
-                <span class="form-label-hint">Rentang 0 - 32</span>
+            <!-- Prefix Field (0-32) -->
+            <div class="sm:col-span-4">
+              <label for="subnet-prefix"
+                class="block text-xs font-semibold uppercase tracking-wider text-google-graySecondary mb-1.5">
+                Prefix Length (CIDR) <span class="text-google-red">*</span>
               </label>
-              <div class="prefix-input-group">
-                <input 
-                  type="number" 
-                  id="prefixInput" 
-                  class="prefix-number-input" 
-                  min="0" 
-                  max="32" 
-                  value="24"
-                  title="Prefix CIDR (0-32)"
-                >
-                <select id="prefixSelect" class="prefix-select" title="Pilih Subnet Mask">
-                  <!-- Generated dynamically via JS -->
-                </select>
+              <div class="relative flex items-center">
+                <span class="absolute left-3.5 text-gray-400 font-mono text-base font-medium select-none">/</span>
+                <input type="number" id="subnet-prefix" value="24" min="0" max="32" placeholder="24"
+                  class="g-input w-full pl-8 pr-3.5 py-2.5 text-sm sm:text-base font-mono bg-white border border-google-grayBorder rounded-xl text-gray-900 placeholder-gray-400 outline-none transition focus:border-google-blue"
+                  oninput="clearSubnetError('prefix')" />
               </div>
+              <!-- Error Container -->
+              <p id="subnet-prefix-error" class="hidden mt-1.5 text-xs text-google-red flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clip-rule="evenodd" />
+                </svg>
+                <span id="subnet-prefix-error-text">Prefix must be an integer between 0 and 32.</span>
+              </p>
             </div>
           </div>
 
-          <!-- Slider Range -->
-          <div class="slider-group">
-            <div class="slider-header">
-              <span>Prefix Slider: <strong>/<span id="sliderValDisplay">24</span></strong></span>
-              <span>/0 (Internet) &rarr; /32 (Single Host)</span>
+          <!-- Action buttons and Quick Presets -->
+          <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-100">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs text-google-graySecondary mr-1">Class presets:</span>
+              <button type="button" onclick="applyClassPreset('10.0.0.1', 8)"
+                class="px-2 py-1 text-xs font-mono bg-gray-100 hover:bg-google-blueLight hover:text-google-blue rounded-md transition border border-transparent hover:border-google-blueBorder">Class
+                A /8</button>
+              <button type="button" onclick="applyClassPreset('172.16.0.1', 16)"
+                class="px-2 py-1 text-xs font-mono bg-gray-100 hover:bg-google-blueLight hover:text-google-blue rounded-md transition border border-transparent hover:border-google-blueBorder">Class
+                B /16</button>
+              <button type="button" onclick="applyClassPreset('192.168.10.0', 24)"
+                class="px-2 py-1 text-xs font-mono bg-gray-100 hover:bg-google-blueLight hover:text-google-blue rounded-md transition border border-transparent hover:border-google-blueBorder">Class
+                C /24</button>
+              <button type="button" onclick="applyClassPreset('192.168.1.100', 26)"
+                class="px-2 py-1 text-xs font-mono bg-gray-100 hover:bg-google-blueLight hover:text-google-blue rounded-md transition border border-transparent hover:border-google-blueBorder">Subnet
+                /26</button>
             </div>
-            <input type="range" id="prefixSlider" class="prefix-slider" min="0" max="32" value="24">
-          </div>
 
-          <!-- Action Buttons -->
-          <div class="form-actions">
-            <button type="button" id="btnCalculate" class="btn btn-primary">
-              <span>🚀 Hitung Subnet</span>
-            </button>
-            <button type="button" id="btnReset" class="btn btn-secondary">
-              <span>🔄 Reset</span>
-            </button>
-            <button type="button" id="btnCopySummary" class="btn btn-secondary">
-              <span>📋 Salin Ringkasan</span>
-            </button>
-
-            <label class="auto-calc-toggle" title="Hitung otomatis saat input diketik">
-              <input type="checkbox" id="autoCalcToggle" checked>
-              <span>Kalkulasi Otomatis (Live)</span>
-            </label>
-          </div>
-
-          <!-- Alert Error Box -->
-          <div id="alertError" class="alert-error" role="alert">
-            <span>⚠️</span>
-            <span id="errorMessage">Pesan error akan muncul di sini</span>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="clearSubnetFields()"
+                class="px-4 py-2.5 rounded-xl border border-google-grayBorder text-google-graySecondary hover:text-gray-900 hover:bg-gray-50 text-sm font-medium transition focus:outline-none">
+                Clear
+              </button>
+              <button type="submit"
+                class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-google-blue hover:bg-google-blueHover text-white text-sm font-medium shadow-sm hover:shadow-google-hover transition focus:outline-none active:scale-[0.98]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Calculate Subnet
+              </button>
+            </div>
           </div>
         </form>
       </section>
 
-      <!-- Special Notice Box (RFC 3021 / 32 / 0) -->
-      <div id="specialNoteBox" class="special-note-box">
-        <span id="specialNoteText"></span>
-      </div>
-
-      <!-- PRIMARY RESULTS (4 Output Utama Sesuai Permintaan) -->
-      <section class="primary-results-grid">
-        <!-- 1. Network Address -->
-        <div class="metric-card net">
-          <div class="metric-header">
-            <span class="metric-label">🌐 Network Address</span>
-            <button class="copy-btn" data-copy="resNetwork" title="Salin Network Address">📋</button>
-          </div>
-          <div class="metric-value" id="resNetwork">192.168.1.0</div>
-          <div class="metric-sub">Alamat identitas subnet / jaringan</div>
-        </div>
-
-        <!-- 2. Broadcast Address -->
-        <div class="metric-card bcast">
-          <div class="metric-header">
-            <span class="metric-label">📢 Broadcast Address</span>
-            <button class="copy-btn" data-copy="resBroadcast" title="Salin Broadcast Address">📋</button>
-          </div>
-          <div class="metric-value" id="resBroadcast">192.168.1.255</div>
-          <div class="metric-sub">Alamat broadcast ke semua host</div>
-        </div>
-
-        <!-- 3. Usable Host Range -->
-        <div class="metric-card range">
-          <div class="metric-header">
-            <span class="metric-label">🎯 Rentang Host (Usable)</span>
-            <button class="copy-btn" data-copy="resHostRange" title="Salin Rentang Host">📋</button>
-          </div>
-          <div class="metric-value" id="resHostRange" style="font-size: 1.15rem;">192.168.1.1 - 192.168.1.254</div>
-          <div class="metric-sub">Rentang IP yang dapat dipasang ke perangkat</div>
-        </div>
-
-        <!-- 4. Jumlah Host -->
-        <div class="metric-card hosts">
-          <div class="metric-header">
-            <span class="metric-label">👥 Jumlah Host Usable</span>
-            <button class="copy-btn" data-copy="resUsableHosts" title="Salin Jumlah Host">📋</button>
-          </div>
-          <div class="metric-value" id="resUsableHosts">254</div>
-          <div class="metric-sub">Dari total <strong id="resTotalHosts">256</strong> alamat IP (2<sup>H</sup> - 2)</div>
-        </div>
-      </section>
-
-      <!-- Technical Details Grid -->
-      <section class="card">
-        <h2 class="card-title">
-          <span>⚙️ Rincian Teknis & Parameter Subnet</span>
-          <span class="badge badge-class" id="resClassBadge">Kelas C</span>
-        </h2>
-        <div class="details-grid">
-          <table class="detail-table">
-            <tbody>
-              <tr>
-                <td class="label-col">Subnet Mask</td>
-                <td class="val-col" id="resSubnetMask">255.255.255.0</td>
-              </tr>
-              <tr>
-                <td class="label-col">Wildcard Mask</td>
-                <td class="val-col" id="resWildcardMask">0.0.0.255</td>
-              </tr>
-              <tr>
-                <td class="label-col">CIDR Notation</td>
-                <td class="val-col" id="resCidrNotation">/24</td>
-              </tr>
-              <tr>
-                <td class="label-col">Full Route CIDR</td>
-                <td class="val-col" id="resFullCidr">192.168.1.0/24</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <table class="detail-table">
-            <tbody>
-              <tr>
-                <td class="label-col">Kelas IP</td>
-                <td class="val-col" id="resIpClass">Kelas C</td>
-              </tr>
-              <tr>
-                <td class="label-col">Kategori / Scope</td>
-                <td class="val-col">
-                  <span class="badge badge-private" id="resIpType">Private (RFC 1918)</span>
-                </td>
-              </tr>
-              <tr>
-                <td class="label-col">Keterangan Scope</td>
-                <td class="val-col" id="resIpTypeNote" style="font-size: 0.8rem;">Alamat privat Class C (192.168.0.0/16)</td>
-              </tr>
-              <tr>
-                <td class="label-col">Bit Alokasi</td>
-                <td class="val-col"><span id="resNetBits">24</span> bit Net / <span id="resHostBits">8</span> bit Host</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Visual Bit Allocation Bar -->
-        <div class="bit-visual-container">
-          <div class="bit-bar-labels">
-            <span>🔵 Network Bits: <strong id="lblNetBits">24</strong> bit</span>
-            <span>🟢 Host Bits: <strong id="lblHostBits">8</strong> bit</span>
-          </div>
-          <div class="bit-bar">
-            <div id="bitBarNetwork" class="bit-segment-network" style="width: 75%;">24 Network Bits</div>
-            <div id="bitBarHost" class="bit-segment-host" style="width: 25%;">8 Host Bits</div>
-          </div>
-        </div>
-
-        <!-- Binary Representation Table -->
-        <h3 style="font-size: 0.95rem; font-weight: 700; margin-top: 16px; margin-bottom: 8px;">
-          🔢 Representasi Biner 32-Bit
-        </h3>
-        <div class="binary-table-wrapper">
-          <table class="binary-table">
-            <thead>
-              <tr>
-                <th>Deskripsi</th>
-                <th>Format Desimal</th>
-                <th>Format Biner (Oktet 1 . 2 . 3 . 4)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>IP Address</td>
-                <td id="binIpDec">192.168.1.10</td>
-                <td id="binIpBin">11000000.10101000.00000001.00001010</td>
-              </tr>
-              <tr>
-                <td>Subnet Mask</td>
-                <td id="binMaskDec">255.255.255.0</td>
-                <td id="binMaskBin">11111111.11111111.11111111.00000000</td>
-              </tr>
-              <tr>
-                <td>Wildcard Mask</td>
-                <td id="binWildDec">0.0.0.255</td>
-                <td id="binWildBin">00000000.00000000.00000000.11111111</td>
-              </tr>
-              <tr>
-                <td>Network Address</td>
-                <td id="binNetDec">192.168.1.0</td>
-                <td id="binNetBin">11000000.10101000.00000001.00000000</td>
-              </tr>
-              <tr>
-                <td>Broadcast Address</td>
-                <td id="binBcastDec">192.168.1.255</td>
-                <td id="binBcastBin">11000000.10101000.00000001.11111111</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- History Section -->
-      <section class="card" id="historyCard">
-        <div class="card-title">
-          <span>🕒 Riwayat Kalkulasi Terakhir</span>
-          <button id="btnClearHistory" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">Hapus Riwayat</button>
-        </div>
-        <div id="historyList" class="history-list">
-          <span style="color: var(--text-muted); font-size: 0.85rem;">Belum ada riwayat kalkulasi.</span>
-        </div>
-      </section>
-    </main>
-
-    <!-- TAB 2: PEMBAGIAN SUBNET (FLSM) -->
-    <section id="tab-division" class="tab-content" style="display: none;">
-      <div class="card">
-        <h2 class="card-title">📑 Pembagian Subnet (Fixed Length Subnet Mask - FLSM)</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
-          Bagi blok network saat ini menjadi beberapa subnet lebih kecil dengan prefix target.
-        </p>
-
-        <div class="flsm-control-bar">
-          <div>
-            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Network Induk:</label>
-            <span id="flsmBaseNetwork" style="font-family: var(--font-mono); font-weight: 700; color: var(--primary);">192.168.1.0/24</span>
+      <!-- Subnet Output Container -->
+      <div id="subnet-result-container">
+        <!-- SUCCESS STATE CARD -->
+        <section id="subnet-success-card"
+          class="bg-white rounded-2xl p-5 sm:p-7 border border-google-grayBorder shadow-google-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-gray-100">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-google-green animate-pulse"></span>
+              <h3 class="font-display font-medium text-lg text-gray-900">Calculated Subnet Results</h3>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <button onclick="copySubnetSummary()"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-google-grayBorder hover:bg-gray-50 text-google-graySecondary hover:text-gray-900 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span id="copy-btn-text">Copy Summary</span>
+              </button>
+              <span class="px-2.5 py-1 rounded-md bg-google-blueLight text-google-blue font-mono font-medium"
+                id="res-cidr-badge">/24</span>
+            </div>
           </div>
 
-          <div>
-            <label for="flsmTargetPrefix" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Bagi Menjadi Prefix:</label>
-            <select id="flsmTargetPrefix" class="form-input" style="padding: 8px 14px; font-family: var(--font-mono); width: auto;">
-              <!-- Options populated dynamically -->
-            </select>
+          <!-- Primary Metric Cards (2x3 Grid on Mobile / 3x2 on Desktop) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <!-- Subnet Mask -->
+            <div
+              class="p-3.5 bg-google-grayBg rounded-xl border border-gray-100 hover:border-google-blueBorder transition">
+              <span class="text-xs uppercase font-medium tracking-wider text-google-graySecondary block mb-1">Subnet
+                Mask</span>
+              <div class="text-base sm:text-lg font-mono font-semibold text-gray-900" id="res-mask">255.255.255.0</div>
+              <div class="text-xs text-google-graySecondary font-mono mt-0.5" id="res-wildcard">Wildcard: 0.0.0.255
+              </div>
+            </div>
+
+            <!-- Network Address -->
+            <div
+              class="p-3.5 bg-google-grayBg rounded-xl border border-gray-100 hover:border-google-blueBorder transition">
+              <span class="text-xs uppercase font-medium tracking-wider text-google-graySecondary block mb-1">Network
+                Address</span>
+              <div class="text-base sm:text-lg font-mono font-semibold text-google-blue" id="res-network">192.168.10.0
+              </div>
+              <div class="text-xs text-google-graySecondary mt-0.5">Base ID of the subnet</div>
+            </div>
+
+            <!-- Broadcast Address -->
+            <div
+              class="p-3.5 bg-google-grayBg rounded-xl border border-gray-100 hover:border-google-blueBorder transition">
+              <span class="text-xs uppercase font-medium tracking-wider text-google-graySecondary block mb-1">Broadcast
+                Address</span>
+              <div class="text-base sm:text-lg font-mono font-semibold text-gray-900" id="res-broadcast">192.168.10.255
+              </div>
+              <div class="text-xs text-google-graySecondary mt-0.5">All host bits set to 1</div>
+            </div>
+
+            <!-- First Usable Host -->
+            <div
+              class="p-3.5 bg-google-grayBg rounded-xl border border-gray-100 hover:border-google-blueBorder transition">
+              <span class="text-xs uppercase font-medium tracking-wider text-google-graySecondary block mb-1">First
+                Usable Host</span>
+              <div class="text-base sm:text-lg font-mono font-semibold text-google-green" id="res-first-host">
+                192.168.10.1</div>
+              <div class="text-xs text-google-graySecondary mt-0.5">Network + 1</div>
+            </div>
+
+            <!-- Last Usable Host -->
+            <div
+              class="p-3.5 bg-google-grayBg rounded-xl border border-gray-100 hover:border-google-blueBorder transition">
+              <span class="text-xs uppercase font-medium tracking-wider text-google-graySecondary block mb-1">Last
+                Usable Host</span>
+              <div class="text-base sm:text-lg font-mono font-semibold text-google-green" id="res-last-host">
+                192.168.10.254</div>
+              <div class="text-xs text-google-graySecondary mt-0.5">Broadcast - 1</div>
+            </div>
+
+            <!-- Usable Hosts Quantity -->
+            <div class="p-3.5 bg-google-blueLight/50 rounded-xl border border-google-blueBorder transition">
+              <span class="text-xs uppercase font-medium tracking-wider text-google-blue block mb-1">Usable Host
+                Capacity</span>
+              <div class="text-base sm:text-lg font-mono font-bold text-google-blue" id="res-usable-count">254</div>
+              <div class="text-xs text-google-graySecondary mt-0.5" id="res-total-hosts">Total addresses: 256
+                (2^(32-24))</div>
+            </div>
           </div>
 
-          <button id="btnDivideSubnet" class="btn btn-primary" style="margin-top: 18px;">
-            <span>Hitung Subnet Cabang</span>
+          <!-- Educational Breakdown: Binary & Bit Allocation (Teacher-friendly) -->
+          <div class="mt-4 pt-4 border-t border-gray-100 bg-gray-50/70 p-4 rounded-xl border">
+            <h4
+              class="text-xs font-semibold text-google-graySecondary uppercase tracking-wider mb-2.5 flex items-center justify-between">
+              <span>Classroom Binary Breakdown</span>
+              <span class="text-[11px] text-google-blue font-normal font-sans">Network Bits vs Host Bits</span>
+            </h4>
+            <div class="space-y-2 text-xs font-mono">
+              <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1 border-b border-gray-200/60">
+                <span class="text-google-graySecondary w-28">IP Binary:</span>
+                <span class="text-gray-800 break-all" id="res-bin-ip">11000000.10101000.00001010.00101101</span>
+              </div>
+              <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1 border-b border-gray-200/60">
+                <span class="text-google-graySecondary w-28">Mask Binary:</span>
+                <span class="text-google-blue break-all" id="res-bin-mask">11111111.11111111.11111111.00000000</span>
+              </div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1">
+                <span class="text-google-graySecondary w-28">Bit Allocation:</span>
+                <span class="text-gray-700" id="res-bit-breakdown"><strong class="text-google-blue">24</strong> network
+                  bits | <strong class="text-google-green">8</strong> host bits (2⁸ - 2 = 254 hosts)</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- EMPTY STATE CARD -->
+        <section id="subnet-empty-card"
+          class="hidden bg-white rounded-2xl p-8 sm:p-12 border border-dashed border-google-grayBorder text-center">
+          <div
+            class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-google-blueLight text-google-blue flex items-center justify-center">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="font-display font-medium text-base sm:text-lg text-gray-900 mb-1">Awaiting Subnet Parameters</h3>
+          <p class="text-sm text-google-graySecondary max-w-sm mx-auto mb-5">
+            Enter an IPv4 address and prefix length above, then click <strong>Calculate Subnet</strong> to see the
+            complete network breakdown.
+          </p>
+          <button onclick="setPreset('success')"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-google-blue bg-google-blueLight hover:bg-blue-100 rounded-lg transition">
+            Load Teacher Example (192.168.10.45/24)
           </button>
-        </div>
+        </section>
 
-        <div id="flsmSummary" style="font-size: 0.875rem; margin-bottom: 12px; color: var(--text-muted);"></div>
-
-        <div class="flsm-table-container">
-          <table class="flsm-table">
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Subnet CIDR</th>
-                <th>Rentang Host Usable</th>
-                <th>Broadcast Address</th>
-                <th>Jumlah Host</th>
-              </tr>
-            </thead>
-            <tbody id="flsmTableBody">
-              <!-- Populated via JS -->
-            </tbody>
-          </table>
-        </div>
+        <!-- ERROR STATE CARD -->
+        <section id="subnet-error-card"
+          class="hidden bg-white rounded-2xl p-6 sm:p-8 border border-google-red/30 shadow-google-sm bg-red-50/10">
+          <div class="flex items-start gap-4">
+            <div
+              class="w-10 h-10 rounded-xl bg-google-redLight text-google-red flex-shrink-0 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-display font-medium text-base text-gray-900">Calculation Error</h3>
+              <p class="text-sm text-google-graySecondary mt-1" id="subnet-global-error-msg">
+                The parameters provided could not be evaluated. Octets must each be strictly between 0 and 255 with
+                valid numeric decimal formatting.
+              </p>
+              <div class="mt-3 flex gap-2">
+                <button onclick="setPreset('success')"
+                  class="text-xs font-medium text-google-blue hover:underline">Reset to valid example</button>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
+    </div>
 
-    <!-- TAB 3: SQA TEST SUITE RUNNER -->
-    <section id="tab-sqa" class="tab-content" style="display: none;">
-      <div class="card">
-        <div class="sqa-header-box">
+
+    <!-- ========================================== -->
+    <!-- TAB 2: VLSM CALCULATOR                     -->
+    <!-- ========================================== -->
+    <div id="vlsm-panel" class="hidden space-y-6 fade-enter">
+      <!-- Input Card -->
+      <section class="bg-white rounded-2xl p-5 sm:p-7 border border-google-grayBorder shadow-google-sm">
+        <div class="pb-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h2 style="font-size: 1.25rem; font-weight: 700;">🧪 Software Quality Assurance (SQA) Test Runner</h2>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">
-              Pengujian otomatis menyeluruh mencakup <strong>Boundary Value Analysis (BVA)</strong> & <strong>Equivalence Partitioning (EP)</strong>.
+            <h2 class="text-base sm:text-lg font-display font-medium text-gray-900">Variable Length Subnet Masking
+              (VLSM)</h2>
+            <p class="text-xs sm:text-sm text-google-graySecondary">Allocate subnets hierarchically sorted by host size
+              to prevent IP address exhaustion.</p>
+          </div>
+          <span
+            class="inline-flex items-center gap-1.5 text-xs text-google-graySecondary font-mono bg-google-grayBg px-2.5 py-1 rounded-md border border-gray-200 self-start sm:self-auto">
+            Algorithm: Descending Requirement Fit
+          </span>
+        </div>
+
+        <form id="vlsm-form" onsubmit="event.preventDefault(); calculateVLSM();" class="mt-5 space-y-5">
+          <!-- Major Network (CIDR) -->
+          <div>
+            <label for="vlsm-network"
+              class="block text-xs font-semibold uppercase tracking-wider text-google-graySecondary mb-1.5">
+              Major Network Address (CIDR) <span class="text-google-red">*</span>
+            </label>
+            <div class="relative max-w-md">
+              <input type="text" id="vlsm-network" value="172.16.0.0/22"
+                placeholder="e.g. 192.168.1.0/24 or 172.16.0.0/20"
+                class="g-input w-full px-3.5 py-2.5 text-sm sm:text-base font-mono bg-white border border-google-grayBorder rounded-xl text-gray-900 placeholder-gray-400 outline-none transition focus:border-google-blue"
+                oninput="clearVlsmError('network')" />
+              <button type="button" onclick="setVlsmDefault()"
+                class="absolute right-3 top-2.5 text-xs text-google-blue hover:text-google-blueHover font-medium">Default</button>
+            </div>
+            <!-- Error Container -->
+            <p id="vlsm-network-error" class="hidden mt-1.5 text-xs text-google-red flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd" />
+              </svg>
+              <span id="vlsm-network-error-text">Please enter a valid network in CIDR notation (e.g.
+                172.16.0.0/22).</span>
             </p>
           </div>
-          <button id="btnRunSqaTests" class="btn btn-primary">
-            <span>▶ Jalankan Ulang Semua Test</span>
+
+          <!-- Dynamic Host Requirements List -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-google-graySecondary">
+                Subnet Requirements (Host Capacity Needed) <span class="text-google-red">*</span>
+              </label>
+              <button type="button" onclick="addVlsmRow()"
+                class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-google-blue bg-google-blueLight hover:bg-blue-100 rounded-lg transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Subnet Row
+              </button>
+            </div>
+
+            <!-- List Container -->
+            <div id="vlsm-rows-container" class="space-y-2.5">
+              <!-- Dynamically populated via JS -->
+            </div>
+
+            <p id="vlsm-general-error" class="hidden mt-2 text-xs text-google-red flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd" />
+              </svg>
+              <span id="vlsm-general-error-text">At least one valid requirement with host count &gt; 0 is
+                required.</span>
+            </p>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-100">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-google-graySecondary">Teacher Presets:</span>
+              <button type="button" onclick="loadVlsmPreset('school')"
+                class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition text-google-grayText">Vocational
+                Campus</button>
+              <button type="button" onclick="loadVlsmPreset('office')"
+                class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition text-google-grayText">Branch
+                Office</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="clearVlsmAll()"
+                class="px-4 py-2.5 rounded-xl border border-google-grayBorder text-google-graySecondary hover:text-gray-900 hover:bg-gray-50 text-sm font-medium transition">
+                Clear All
+              </button>
+              <button type="submit"
+                class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-google-blue hover:bg-google-blueHover text-white text-sm font-medium shadow-sm hover:shadow-google-hover transition active:scale-[0.98]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Calculate VLSM Table
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- VLSM Result Output Container -->
+      <div id="vlsm-result-container">
+        <!-- SUCCESS STATE: RESULT TABLE & SUMMARY -->
+        <section id="vlsm-success-card"
+          class="bg-white rounded-2xl p-5 sm:p-7 border border-google-grayBorder shadow-google-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-gray-100">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-google-green animate-pulse"></span>
+                <h3 class="font-display font-medium text-lg text-gray-900">VLSM Allocation Schedule</h3>
+              </div>
+              <p class="text-xs text-google-graySecondary mt-0.5" id="vlsm-capacity-summary">Allocated 4 subnets from
+                major block 172.16.0.0/22 (1,024 Total IPs)</p>
+            </div>
+
+            <!-- Export / CSV button -->
+            <div class="flex items-center gap-2">
+              <button onclick="exportVlsmCSV()"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-google-grayBorder hover:bg-gray-50 text-xs text-google-graySecondary hover:text-gray-900 transition font-medium">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+              </button>
+              <button onclick="copyVlsmSummary()"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-google-grayBorder hover:bg-gray-50 text-xs text-google-graySecondary hover:text-gray-900 transition font-medium">
+                <span id="vlsm-copy-btn-text">Copy Table</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Allocation Usage Meter Bar -->
+          <div class="bg-google-grayBg p-3.5 rounded-xl border border-gray-100 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-medium text-google-graySecondary">Address Space Utilization:</span>
+              <span class="font-mono font-semibold text-gray-900" id="vlsm-utilization-text">704 / 1,024 addresses used
+                (68.8%)</span>
+            </div>
+            <div class="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden flex">
+              <div id="vlsm-utilization-bar" class="bg-google-blue h-full transition-all duration-500"
+                style="width: 68.8%;"></div>
+              <div id="vlsm-unallocated-bar" class="bg-google-greenLight h-full transition-all duration-500"
+                style="width: 31.2%;"></div>
+            </div>
+            <div class="flex justify-between text-[11px] text-google-graySecondary">
+              <span>● Allocated Subnets</span>
+              <span class="text-google-green font-medium" id="vlsm-free-text">320 Free IPs Available for Future
+                Growth</span>
+            </div>
+          </div>
+
+          <!-- Responsive Table Container -->
+          <div class="overflow-x-auto rounded-xl border border-google-grayBorder shadow-xs">
+            <table class="w-full text-left text-xs sm:text-sm font-sans divide-y divide-google-grayBorder">
+              <thead class="bg-gray-50 text-google-graySecondary font-medium select-none">
+                <tr>
+                  <th class="py-3 px-3 sm:px-4">Subnet Name</th>
+                  <th class="py-3 px-3 text-center">Req / Usable</th>
+                  <th class="py-3 px-3 sm:px-4">Prefix / Mask</th>
+                  <th class="py-3 px-3 sm:px-4">Network ID</th>
+                  <th class="py-3 px-3 sm:px-4">Usable Host Range</th>
+                  <th class="py-3 px-3 sm:px-4">Broadcast ID</th>
+                </tr>
+              </thead>
+              <tbody id="vlsm-table-body" class="divide-y divide-gray-100 font-mono text-xs sm:text-xs">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- EMPTY STATE CARD -->
+        <section id="vlsm-empty-card"
+          class="hidden bg-white rounded-2xl p-8 sm:p-12 border border-dashed border-google-grayBorder text-center">
+          <div
+            class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-google-blueLight text-google-blue flex items-center justify-center">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <h3 class="font-display font-medium text-base sm:text-lg text-gray-900 mb-1">No VLSM Subnets Calculated Yet
+          </h3>
+          <p class="text-sm text-google-graySecondary max-w-md mx-auto mb-5">
+            Configure your root CIDR network and add required host capacities for each department or lab to generate an
+            optimal VLSM map.
+          </p>
+          <button onclick="setPreset('success')"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-google-blue bg-google-blueLight hover:bg-blue-100 rounded-lg transition">
+            Load Vocational High School Lab Scenario
           </button>
-        </div>
+        </section>
 
-        <!-- Stats Grid -->
-        <div class="sqa-stats-grid">
-          <div class="sqa-stat-card total">
-            <div class="sqa-stat-number" id="sqaStatTotal">50</div>
-            <div class="sqa-stat-label">Total Test Cases</div>
+        <!-- ERROR STATE CARD -->
+        <section id="vlsm-error-card"
+          class="hidden bg-white rounded-2xl p-6 sm:p-8 border border-google-red/30 shadow-google-sm bg-red-50/10">
+          <div class="flex items-start gap-4">
+            <div
+              class="w-10 h-10 rounded-xl bg-google-redLight text-google-red flex-shrink-0 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-display font-medium text-base text-gray-900">VLSM Allocation Overflow</h3>
+              <p class="text-sm text-google-graySecondary mt-1" id="vlsm-global-error-msg">
+                The requested host count exceeds the address space available in the specified parent CIDR block. Please
+                choose a larger block (lower prefix number) or reduce required host sizes.
+              </p>
+              <div class="mt-3 flex gap-2">
+                <button onclick="loadVlsmPreset('school')"
+                  class="text-xs font-medium text-google-blue hover:underline">Reset to valid campus lab layout</button>
+              </div>
+            </div>
           </div>
-          <div class="sqa-stat-card pass">
-            <div class="sqa-stat-number" id="sqaStatPass" style="color: var(--success);">50</div>
-            <div class="sqa-stat-label">Passed (Lulus)</div>
-          </div>
-          <div class="sqa-stat-card fail">
-            <div class="sqa-stat-number" id="sqaStatFail" style="color: var(--danger);">0</div>
-            <div class="sqa-stat-label">Failed (Gagal)</div>
-          </div>
-          <div class="sqa-stat-card">
-            <div class="sqa-stat-number" id="sqaStatTime" style="color: var(--primary);">4 ms</div>
-            <div class="sqa-stat-label">Waktu Eksekusi</div>
-          </div>
-        </div>
+        </section>
+      </div>
+    </div>
 
-        <!-- Test Case Results List -->
-        <div class="sqa-test-list" id="sqaTestList">
-          <!-- Populated via JS -->
+    <!-- Educational Footer Cheat Sheet / Quick Reference for Students -->
+    <div class="mt-8 bg-white border border-google-grayBorder rounded-2xl p-5 shadow-xs">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-google-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+        <h4 class="text-xs font-semibold uppercase tracking-wider text-gray-700">Teacher Quick Reference: Subnet Power
+          of Two Formula</h4>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div class="bg-google-grayBg p-2.5 rounded-lg border border-gray-100">
+          <span class="font-mono font-semibold text-google-blue">/24</span>: 256 IPs (254 Usable)
+          <div class="text-[11px] text-google-graySecondary font-mono">255.255.255.0</div>
+        </div>
+        <div class="bg-google-grayBg p-2.5 rounded-lg border border-gray-100">
+          <span class="font-mono font-semibold text-google-blue">/26</span>: 64 IPs (62 Usable)
+          <div class="text-[11px] text-google-graySecondary font-mono">255.255.255.192</div>
+        </div>
+        <div class="bg-google-grayBg p-2.5 rounded-lg border border-gray-100">
+          <span class="font-mono font-semibold text-google-blue">/28</span>: 16 IPs (14 Usable)
+          <div class="text-[11px] text-google-graySecondary font-mono">255.255.255.240</div>
+        </div>
+        <div class="bg-google-grayBg p-2.5 rounded-lg border border-gray-100">
+          <span class="font-mono font-semibold text-google-blue">/30</span>: 4 IPs (2 Usable P2P)
+          <div class="text-[11px] text-google-graySecondary font-mono">255.255.255.252</div>
         </div>
       </div>
-    </section>
+    </div>
+  </main>
 
-    <!-- Footer -->
-    <footer class="app-footer">
-      <p>
-        <strong>Kalkulator Subnet IPv4</strong> &bull; Dibuat untuk pemahaman jaringan & Software Quality Assurance (SQA).
-      </p>
-      <p style="margin-top: 6px;">
-        Mendukung standar CIDR, RFC 1918 (Private IP), RFC 3021 (/31 Point-to-Point), dan RFC 1122.
-      </p>
-    </footer>
-  </div>
+  <!-- Bottom Google-Style Minimal Footer -->
+  <footer class="bg-white border-t border-google-grayBorder py-4 mt-8">
+    <div
+      class="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-google-graySecondary gap-2">
+      <div class="flex items-center gap-2">
+        <span>Designed for Computer Systems & Telecommunications Teaching</span>
+        <span>•</span>
+        <span class="text-gray-400">Classroom Edition</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span>Compliant with IPv4 RFC 791 / RFC 1878 / CIDR</span>
+      </div>
+    </div>
+  </footer>
 
-  <!-- Toast Container -->
-  <div id="toastContainer" class="toast-container"></div>
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT LOGIC ENGINE                    -->
+  <!-- ========================================== -->
+  <script>
+    // State management
+    let activeTab = 'subnet';
+    let currentState = 'success'; // 'empty', 'success', 'error'
 
-  <!-- Scripts -->
-  <script src="js/calculator.js"></script>
-  <script src="js/app.js"></script>
+    // Initial VLSM requirements dataset
+    let vlsmRows = [
+      { id: 1, name: 'Computer Lab A', hosts: 120 },
+      { id: 2, name: 'Vocational Faculty & Staff', hosts: 55 },
+      { id: 3, name: 'Cisco Routing Hardware Lab', hosts: 28 },
+      { id: 4, name: 'Server Management VLAN', hosts: 12 },
+      { id: 5, name: 'WAN Point-to-Point Link', hosts: 2 }
+    ];
+    let nextRowId = 6;
+
+    // --- Tab Switching ---
+    function switchTab(tab) {
+      activeTab = tab;
+      const subnetBtn = document.getElementById('tab-subnet-btn');
+      const vlsmBtn = document.getElementById('tab-vlsm-btn');
+      const subnetPanel = document.getElementById('subnet-panel');
+      const vlsmPanel = document.getElementById('vlsm-panel');
+
+      if (tab === 'subnet') {
+        subnetBtn.className = 'tab-active py-3.5 px-1 text-sm inline-flex items-center gap-2 focus:outline-none transition';
+        vlsmBtn.className = 'tab-inactive py-3.5 px-1 text-sm inline-flex items-center gap-2 focus:outline-none transition';
+        subnetPanel.classList.remove('hidden');
+        vlsmPanel.classList.add('hidden');
+      } else {
+        vlsmBtn.className = 'tab-active py-3.5 px-1 text-sm inline-flex items-center gap-2 focus:outline-none transition';
+        subnetBtn.className = 'tab-inactive py-3.5 px-1 text-sm inline-flex items-center gap-2 focus:outline-none transition';
+        vlsmPanel.classList.remove('hidden');
+        subnetPanel.classList.add('hidden');
+      }
+    }
+
+    // --- Preset / State Switcher (Supports Empty, Success, Error requested by user) ---
+    function setPreset(state) {
+      currentState = state;
+      const subnetSuccess = document.getElementById('subnet-success-card');
+      const subnetEmpty = document.getElementById('subnet-empty-card');
+      const subnetError = document.getElementById('subnet-error-card');
+      const vlsmSuccess = document.getElementById('vlsm-success-card');
+      const vlsmEmpty = document.getElementById('vlsm-empty-card');
+      const vlsmError = document.getElementById('vlsm-error-card');
+
+      // Update pill active classes
+      const btnEmpty = document.getElementById('preset-btn-empty');
+      const btnSuccess = document.getElementById('preset-btn-success');
+      const btnError = document.getElementById('preset-btn-error');
+      if (btnEmpty && btnSuccess && btnError) {
+        btnEmpty.className = 'px-2.5 py-1 rounded-md transition ' + (state === 'empty' ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'hover:bg-white text-google-graySecondary hover:text-gray-900');
+        btnSuccess.className = 'px-2.5 py-1 rounded-md transition ' + (state === 'success' ? 'bg-white text-google-blue shadow-xs font-semibold' : 'hover:bg-white text-google-graySecondary hover:text-gray-900');
+        btnError.className = 'px-2.5 py-1 rounded-md transition ' + (state === 'error' ? 'bg-white text-google-red shadow-xs font-semibold' : 'hover:bg-white text-google-red hover:shadow-xs');
+      }
+
+      // Clear all errors first
+      clearSubnetError('ip');
+      clearSubnetError('prefix');
+      clearVlsmError('network');
+      document.getElementById('vlsm-general-error').classList.add('hidden');
+
+      if (state === 'empty') {
+        // Empty Subnet inputs
+        document.getElementById('subnet-ip').value = '';
+        document.getElementById('subnet-prefix').value = '';
+        subnetSuccess.classList.add('hidden');
+        subnetError.classList.add('hidden');
+        subnetEmpty.classList.remove('hidden');
+
+        // Empty VLSM inputs
+        document.getElementById('vlsm-network').value = '';
+        vlsmRows = [];
+        renderVlsmRows();
+        vlsmSuccess.classList.add('hidden');
+        vlsmError.classList.add('hidden');
+        vlsmEmpty.classList.remove('hidden');
+      } else if (state === 'error') {
+        // Set invalid inputs that will be rejected by backend API (HTTP 400)
+        document.getElementById('subnet-ip').value = '256.1.1.1';
+        document.getElementById('subnet-prefix').value = '35';
+        calculateSubnet();
+
+        // VLSM error: non-network CIDR rejected with HTTP 400
+        document.getElementById('vlsm-network').value = '192.168.1.5/24';
+        vlsmRows = [
+          { id: 1, name: 'Auditorium Wi-Fi', hosts: 500 },
+          { id: 2, name: 'Library Desktops', hosts: 100 }
+        ];
+        renderVlsmRows();
+        calculateVLSM();
+      } else {
+        // Success state
+        document.getElementById('subnet-ip').value = '192.168.10.45';
+        document.getElementById('subnet-prefix').value = '24';
+        calculateSubnet();
+
+        document.getElementById('vlsm-network').value = '172.16.0.0/22';
+        vlsmRows = [
+          { id: 1, name: 'Computer Lab A', hosts: 120 },
+          { id: 2, name: 'Vocational Faculty & Staff', hosts: 55 },
+          { id: 3, name: 'Cisco Routing Hardware Lab', hosts: 28 },
+          { id: 4, name: 'Server Management VLAN', hosts: 12 },
+          { id: 5, name: 'WAN Point-to-Point Link', hosts: 2 }
+        ];
+        renderVlsmRows();
+        calculateVLSM();
+      }
+    }
+
+    // --- Helper Format Biner untuk Visualisasi Edukasi TKJ ---
+    function ipToBin(ipStr) {
+      if (!ipStr || typeof ipStr !== 'string') return '';
+      const parts = ipStr.trim().split('.');
+      if (parts.length !== 4) return ipStr;
+      return parts.map(part => {
+        const num = parseInt(part, 10);
+        return isNaN(num) ? '00000000' : num.toString(2).padStart(8, '0');
+      }).join('.');
+    }
+
+    // --- Subnet Helpers & UI Feedback ---
+    function showSubnetError(field, msg) {
+      const errEl = document.getElementById(`subnet-${field}-error`);
+      const txtEl = document.getElementById(`subnet-${field}-error-text`);
+      const inpEl = document.getElementById(`subnet-${field}`);
+      if (errEl && txtEl && inpEl) {
+        txtEl.textContent = msg;
+        errEl.classList.remove('hidden');
+        inpEl.classList.add('border-google-red', 'bg-red-50/20');
+        inpEl.classList.remove('border-google-grayBorder');
+      }
+    }
+
+    function clearSubnetError(field) {
+      const errEl = document.getElementById(`subnet-${field}-error`);
+      const inpEl = document.getElementById(`subnet-${field}`);
+      if (errEl && inpEl) {
+        errEl.classList.add('hidden');
+        inpEl.classList.remove('border-google-red', 'bg-red-50/20');
+        inpEl.classList.add('border-google-grayBorder');
+      }
+      document.getElementById('subnet-error-card').classList.add('hidden');
+    }
+
+    // --- Sambungan API Backend: GET /api/subnet ---
+    async function calculateSubnet() {
+      const ipInput = document.getElementById('subnet-ip').value;
+      const prefixInput = document.getElementById('subnet-prefix').value;
+
+      clearSubnetError('ip');
+      clearSubnetError('prefix');
+      document.getElementById('subnet-error-card').classList.add('hidden');
+
+      // State Empty jika kedua input kosong
+      if (ipInput === '' && prefixInput === '') {
+        document.getElementById('subnet-success-card').classList.add('hidden');
+        document.getElementById('subnet-error-card').classList.add('hidden');
+        document.getElementById('subnet-empty-card').classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const url = `/api/subnet?ip=${encodeURIComponent(ipInput)}&prefix=${encodeURIComponent(prefixInput)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Tangani HTTP 400 Bad Request
+        if (!response.ok) {
+          const errorMsg = data.detail || 'Terjadi kesalahan pada validasi subnet.';
+          document.getElementById('subnet-global-error-msg').textContent = errorMsg;
+          document.getElementById('subnet-success-card').classList.add('hidden');
+          document.getElementById('subnet-empty-card').classList.add('hidden');
+          document.getElementById('subnet-error-card').classList.remove('hidden');
+
+          const lower = errorMsg.toLowerCase();
+          if (lower.includes('prefix')) {
+            showSubnetError('prefix', errorMsg);
+          } else if (lower.includes('oktet') || lower.includes('ip') || lower.includes('alamat')) {
+            showSubnetError('ip', errorMsg);
+          } else {
+            showSubnetError('ip', errorMsg);
+          }
+          return;
+        }
+
+        // Tampilkan State Success
+        document.getElementById('subnet-empty-card').classList.add('hidden');
+        document.getElementById('subnet-error-card').classList.add('hidden');
+        document.getElementById('subnet-success-card').classList.remove('hidden');
+
+        const prefixNum = parseInt(prefixInput, 10);
+        document.getElementById('res-cidr-badge').textContent = `/${prefixNum}`;
+        document.getElementById('res-mask').textContent = data.mask;
+
+        // Hitung Wildcard dari Mask
+        const wildcard = data.mask.split('.').map(o => 255 - parseInt(o, 10)).join('.');
+        document.getElementById('res-wildcard').textContent = `Wildcard: ${wildcard}`;
+
+        document.getElementById('res-network').textContent = data.network;
+
+        // Tampilkan keterangan khusus jika broadcast bernilai null (/31 atau /32)
+        let broadcastDisplay = data.broadcast;
+        if (data.broadcast === null || data.broadcast === undefined) {
+          if (prefixNum === 31) {
+            broadcastDisplay = 'Tidak ada (Point-to-Point /31)';
+          } else if (prefixNum === 32) {
+            broadcastDisplay = 'Tidak ada (Host Route /32)';
+          } else {
+            broadcastDisplay = 'Tidak ada';
+          }
+        }
+        document.getElementById('res-broadcast').textContent = broadcastDisplay;
+
+        document.getElementById('res-first-host').textContent = data.first_host;
+        document.getElementById('res-last-host').textContent = data.last_host;
+        document.getElementById('res-usable-count').textContent = data.usable_hosts.toLocaleString('id-ID');
+
+        const totalAddresses = prefixNum === 0 ? 4294967296 : Math.pow(2, 32 - prefixNum);
+        document.getElementById('res-total-hosts').textContent = `Total addresses: ${totalAddresses.toLocaleString('id-ID')} (2^${32 - prefixNum})`;
+
+        // Visualisasi Biner untuk Siswa/Guru TKJ
+        document.getElementById('res-bin-ip').textContent = ipToBin(data.network || ipInput);
+        document.getElementById('res-bin-mask').textContent = ipToBin(data.mask);
+        document.getElementById('res-bit-breakdown').innerHTML =
+          `<strong class="text-google-blue">${prefixNum}</strong> network bits | <strong class="text-google-green">${32 - prefixNum}</strong> host bits (${prefixNum === 31 ? 'RFC 3021 P2P' : prefixNum === 32 ? 'Single Host' : `2^${32 - prefixNum} - 2 = ${data.usable_hosts} hosts`})`;
+
+      } catch (err) {
+        document.getElementById('subnet-global-error-msg').textContent = 'Gagal terhubung ke API backend (/api/subnet). Pastikan server FastAPI sedang berjalan.';
+        document.getElementById('subnet-success-card').classList.add('hidden');
+        document.getElementById('subnet-empty-card').classList.add('hidden');
+        document.getElementById('subnet-error-card').classList.remove('hidden');
+      }
+    }
+
+    function applyClassPreset(ip, prefix) {
+      document.getElementById('subnet-ip').value = ip;
+      document.getElementById('subnet-prefix').value = prefix;
+      clearSubnetError('ip');
+      clearSubnetError('prefix');
+      calculateSubnet();
+    }
+
+    function setSubnetDefault() {
+      applyClassPreset('192.168.10.45', 24);
+    }
+
+    function clearSubnetFields() {
+      document.getElementById('subnet-ip').value = '';
+      document.getElementById('subnet-prefix').value = '';
+      clearSubnetError('ip');
+      clearSubnetError('prefix');
+      document.getElementById('subnet-success-card').classList.add('hidden');
+      document.getElementById('subnet-error-card').classList.add('hidden');
+      document.getElementById('subnet-empty-card').classList.remove('hidden');
+    }
+
+    function copySubnetSummary() {
+      const summary = `Subnet Summary:
+Network: ${document.getElementById('res-network').textContent} ${document.getElementById('res-cidr-badge').textContent}
+Mask: ${document.getElementById('res-mask').textContent}
+Usable Host Range: ${document.getElementById('res-first-host').textContent} - ${document.getElementById('res-last-host').textContent}
+Broadcast: ${document.getElementById('res-broadcast').textContent}
+Usable Hosts: ${document.getElementById('res-usable-count').textContent}`;
+      navigator.clipboard.writeText(summary).then(() => {
+        const btnText = document.getElementById('copy-btn-text');
+        btnText.textContent = 'Copied!';
+        setTimeout(() => { btnText.textContent = 'Copy Summary'; }, 2000);
+      });
+    }
+
+    // --- VLSM Helpers & Manajemen Baris Dinamis ---
+    function renderVlsmRows() {
+      const container = document.getElementById('vlsm-rows-container');
+      container.innerHTML = '';
+
+      if (vlsmRows.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 text-center border border-dashed rounded-xl text-google-graySecondary text-xs">
+            No subnets defined. Click "Add Subnet Row" to begin.
+          </div>
+        `;
+        return;
+      }
+
+      vlsmRows.forEach((row, index) => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'flex items-center gap-2 sm:gap-3 bg-google-grayBg p-2.5 rounded-xl border border-gray-100 hover:border-gray-300 transition';
+        rowEl.innerHTML = `
+          <span class="w-6 text-center text-xs font-mono font-medium text-google-graySecondary">${index + 1}</span>
+          <div class="flex-1">
+            <input 
+              type="text" 
+              value="${row.name}" 
+              placeholder="Subnet Label (e.g. Science Lab)" 
+              class="w-full px-3 py-1.5 text-xs sm:text-sm bg-white border border-google-grayBorder rounded-lg text-gray-900 focus:border-google-blue outline-none"
+              onchange="updateVlsmRow(${row.id}, 'name', this.value)"
+              oninput="updateVlsmRow(${row.id}, 'name', this.value)"
+            />
+          </div>
+          <div class="w-32 sm:w-40 flex items-center">
+            <input 
+              type="number" 
+              value="${row.hosts}" 
+              min="1" 
+              max="65534"
+              placeholder="Hosts" 
+              class="w-full px-3 py-1.5 text-xs sm:text-sm font-mono bg-white border border-google-grayBorder rounded-lg text-gray-900 focus:border-google-blue outline-none text-right"
+              onchange="updateVlsmRow(${row.id}, 'hosts', this.value)"
+              oninput="updateVlsmRow(${row.id}, 'hosts', this.value)"
+            />
+            <span class="ml-1.5 text-xs text-google-graySecondary hidden sm:inline">hosts</span>
+          </div>
+          <button 
+            type="button" 
+            onclick="removeVlsmRow(${row.id})" 
+            title="Delete Requirement"
+            class="p-1.5 text-gray-400 hover:text-google-red hover:bg-google-redLight rounded-lg transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        `;
+        container.appendChild(rowEl);
+      });
+    }
+
+    function addVlsmRow() {
+      vlsmRows.push({
+        id: nextRowId++,
+        name: `Subnet Group ${String.fromCharCode(65 + (vlsmRows.length % 26))}`,
+        hosts: 25
+      });
+      renderVlsmRows();
+      document.getElementById('vlsm-general-error').classList.add('hidden');
+    }
+
+    function removeVlsmRow(id) {
+      vlsmRows = vlsmRows.filter(r => r.id !== id);
+      renderVlsmRows();
+    }
+
+    function updateVlsmRow(id, key, val) {
+      const target = vlsmRows.find(r => r.id === id);
+      if (target) {
+        if (key === 'hosts') {
+          target.hosts = parseInt(val, 10) || 0;
+        } else {
+          target.name = val;
+        }
+      }
+    }
+
+    function clearVlsmError(field) {
+      const err = document.getElementById(`vlsm-${field}-error`);
+      const inp = document.getElementById(`vlsm-${field}`);
+      if (err && inp) {
+        err.classList.add('hidden');
+        inp.classList.remove('border-google-red', 'bg-red-50/20');
+        inp.classList.add('border-google-grayBorder');
+      }
+      document.getElementById('vlsm-error-card').classList.add('hidden');
+    }
+
+    function showVlsmError(field, msg) {
+      const err = document.getElementById(`vlsm-${field}-error`);
+      const txt = document.getElementById(`vlsm-${field}-error-text`);
+      const inp = document.getElementById(`vlsm-${field}`);
+      if (err && txt && inp) {
+        txt.textContent = msg;
+        err.classList.remove('hidden');
+        inp.classList.add('border-google-red', 'bg-red-50/20');
+        inp.classList.remove('border-google-grayBorder');
+      }
+    }
+
+    function clearVlsmAll() {
+      document.getElementById('vlsm-network').value = '';
+      vlsmRows = [];
+      renderVlsmRows();
+      clearVlsmError('network');
+      document.getElementById('vlsm-general-error').classList.add('hidden');
+      document.getElementById('vlsm-success-card').classList.add('hidden');
+      document.getElementById('vlsm-error-card').classList.add('hidden');
+      document.getElementById('vlsm-empty-card').classList.remove('hidden');
+    }
+
+    function setVlsmDefault() {
+      document.getElementById('vlsm-network').value = '172.16.0.0/22';
+      clearVlsmError('network');
+    }
+
+    function loadVlsmPreset(type) {
+      if (type === 'school') {
+        document.getElementById('vlsm-network').value = '172.16.0.0/22';
+        vlsmRows = [
+          { id: 1, name: 'Computer Lab A', hosts: 120 },
+          { id: 2, name: 'Vocational Faculty & Staff', hosts: 55 },
+          { id: 3, name: 'Cisco Routing Hardware Lab', hosts: 28 },
+          { id: 4, name: 'Server Management VLAN', hosts: 12 },
+          { id: 5, name: 'WAN Point-to-Point Link', hosts: 2 }
+        ];
+      } else {
+        document.getElementById('vlsm-network').value = '192.168.1.0/24';
+        vlsmRows = [
+          { id: 1, name: 'Sales & Marketing', hosts: 50 },
+          { id: 2, name: 'Operations & IT', hosts: 26 },
+          { id: 3, name: 'Guest Wi-Fi VLAN', hosts: 20 },
+          { id: 4, name: 'VoIP Telephony', hosts: 10 }
+        ];
+      }
+      renderVlsmRows();
+      calculateVLSM();
+    }
+
+    // --- Sambungan API Backend: POST /api/vlsm ---
+    async function calculateVLSM() {
+      const netInput = document.getElementById('vlsm-network').value;
+      clearVlsmError('network');
+      document.getElementById('vlsm-general-error').classList.add('hidden');
+      document.getElementById('vlsm-error-card').classList.add('hidden');
+
+      if (!netInput && vlsmRows.length === 0) {
+        document.getElementById('vlsm-success-card').classList.add('hidden');
+        document.getElementById('vlsm-error-card').classList.add('hidden');
+        document.getElementById('vlsm-empty-card').classList.remove('hidden');
+        return;
+      }
+
+      const kebutuhanList = vlsmRows.map(r => r.hosts);
+
+      try {
+        const response = await fetch('/api/vlsm', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            network: netInput,
+            kebutuhan_host: kebutuhanList
+          })
+        });
+
+        const data = await response.json();
+
+        // Tangani HTTP 400 Bad Request
+        if (!response.ok) {
+          const errorMsg = data.detail || 'Terjadi kesalahan pada alokasi VLSM.';
+          document.getElementById('vlsm-global-error-msg').textContent = errorMsg;
+          document.getElementById('vlsm-success-card').classList.add('hidden');
+          document.getElementById('vlsm-empty-card').classList.add('hidden');
+          document.getElementById('vlsm-error-card').classList.remove('hidden');
+
+          const lower = errorMsg.toLowerCase();
+          if (lower.includes('network') || lower.includes('cidr') || lower.includes('alamat')) {
+            showVlsmError('network', errorMsg);
+          } else {
+            document.getElementById('vlsm-general-error-text').textContent = errorMsg;
+            document.getElementById('vlsm-general-error').classList.remove('hidden');
+          }
+          return;
+        }
+
+        // Tampilkan State Success
+        document.getElementById('vlsm-empty-card').classList.add('hidden');
+        document.getElementById('vlsm-error-card').classList.add('hidden');
+        document.getElementById('vlsm-success-card').classList.remove('hidden');
+
+        // Render Tabel Hasil VLSM
+        // Cocokkan nama subnet dari urutan kebutuhan host (descending)
+        const sortedRows = [...vlsmRows].sort((a, b) => b.hosts - a.hosts);
+        const tbody = document.getElementById('vlsm-table-body');
+        tbody.innerHTML = '';
+        let totalUsedIps = 0;
+
+        data.forEach((item, idx) => {
+          const name = (sortedRows[idx] && sortedRows[idx].name) ? sortedRows[idx].name : `Subnet ${idx + 1}`;
+          const subPrefix = parseInt(item.network_cidr.split('/')[1], 10);
+          const blockSize = Math.pow(2, 32 - subPrefix);
+          totalUsedIps += blockSize;
+
+          const broadcastDisplay = item.broadcast !== null ? item.broadcast : 'Tidak ada';
+
+          const tr = document.createElement('tr');
+          tr.className = idx % 2 === 0 ? 'bg-white hover:bg-google-blueLight/20 transition' : 'bg-gray-50/70 hover:bg-google-blueLight/20 transition';
+          tr.innerHTML = `
+            <td class="py-3 px-3 sm:px-4 font-sans font-medium text-gray-900">
+              ${name}
+            </td>
+            <td class="py-3 px-3 text-center">
+              <span class="text-google-graySecondary">${item.kebutuhan} req</span>
+              <span class="text-xs text-google-green font-semibold ml-1">(${item.usable_hosts})</span>
+            </td>
+            <td class="py-3 px-3 sm:px-4">
+              <span class="font-bold text-google-blue">/${subPrefix}</span>
+              <div class="text-[11px] text-gray-500">${item.mask}</div>
+            </td>
+            <td class="py-3 px-3 sm:px-4 font-semibold text-gray-800">${item.network}</td>
+            <td class="py-3 px-3 sm:px-4 text-google-grayText">${item.first_host} – ${item.last_host}</td>
+            <td class="py-3 px-3 sm:px-4 text-gray-600">${broadcastDisplay}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // Hitung Meter Utilisasi Alamat
+        const parentParts = netInput.split('/');
+        const parentPrefix = parentParts.length === 2 ? parseInt(parentParts[1], 10) : 24;
+        const totalAvailableIps = Math.pow(2, 32 - parentPrefix);
+        const usagePct = Math.min(100, ((totalUsedIps / totalAvailableIps) * 100)).toFixed(1);
+        const freeIps = Math.max(0, totalAvailableIps - totalUsedIps);
+
+        document.getElementById('vlsm-capacity-summary').textContent =
+          `Allocated ${data.length} subnets from major block ${netInput} (${totalAvailableIps.toLocaleString('id-ID')} Total IPs)`;
+        document.getElementById('vlsm-utilization-text').textContent =
+          `${totalUsedIps.toLocaleString('id-ID')} / ${totalAvailableIps.toLocaleString('id-ID')} addresses used (${usagePct}%)`;
+        document.getElementById('vlsm-utilization-bar').style.width = `${usagePct}%`;
+        document.getElementById('vlsm-unallocated-bar').style.width = `${Math.max(0, 100 - usagePct)}%`;
+        document.getElementById('vlsm-free-text').textContent = `${freeIps.toLocaleString('id-ID')} Free IP addresses remaining for expansion`;
+
+      } catch (err) {
+        document.getElementById('vlsm-global-error-msg').textContent = 'Gagal terhubung ke API backend (/api/vlsm). Pastikan server FastAPI sedang berjalan.';
+        document.getElementById('vlsm-success-card').classList.add('hidden');
+        document.getElementById('vlsm-empty-card').classList.add('hidden');
+        document.getElementById('vlsm-error-card').classList.remove('hidden');
+      }
+    }
+
+    function exportVlsmCSV() {
+      let csv = 'Subnet Name,Required Hosts,Usable Hosts,Prefix,Subnet Mask,Network ID,First Host,Last Host,Broadcast ID\n';
+      const rows = document.querySelectorAll('#vlsm-table-body tr');
+      if (rows.length === 0) return;
+
+      rows.forEach(r => {
+        const cols = Array.from(r.querySelectorAll('td')).map(td => `"${td.innerText.replace(/\n/g, ' - ').trim()}"`);
+        csv += cols.join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'vlsm-allocation-schedule.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function copyVlsmSummary() {
+      const text = `VLSM Allocation Plan (${document.getElementById('vlsm-network').value}):\n` +
+        Array.from(document.querySelectorAll('#vlsm-table-body tr'))
+          .map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText.replace(/\n/g, ' ')).join(' | '))
+          .join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('vlsm-copy-btn-text');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Table'; }, 2000);
+      });
+    }
+
+    // Inisialisasi awal saat halaman selesai dimuat
+    document.addEventListener('DOMContentLoaded', () => {
+      renderVlsmRows();
+      calculateSubnet();
+      calculateVLSM();
+    });
+  </script>
 </body>
-</html>
 
+</html>
