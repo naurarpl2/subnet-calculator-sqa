@@ -11,7 +11,8 @@ pembelajaran siswa dan guru Teknik Komputer dan Jaringan (TKJ).
 import os
 from typing import Any
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 
 
 # ==============================================================================
@@ -49,27 +50,28 @@ def int_to_ip(ip_int: int) -> str:
         ip_int (int): Integer 32-bit (0 s.d. 0xFFFFFFFF).
 
     Returns:
-        str: Alamat IPv4 dotted-decimal, contoh "192.168.1.1".
+        str: String IPv4, contoh "192.168.1.1".
     """
-    o1 = (ip_int >> 24) & 0xFF
-    o2 = (ip_int >> 16) & 0xFF
-    o3 = (ip_int >> 8) & 0xFF
-    o4 = ip_int & 0xFF
-    return f"{o1}.{o2}.{o3}.{o4}"
+    return (
+        f"{(ip_int >> 24) & 0xFF}."
+        f"{(ip_int >> 16) & 0xFF}."
+        f"{(ip_int >> 8) & 0xFF}."
+        f"{ip_int & 0xFF}"
+    )
 
 
 def prefix_to_mask_int(prefix: int) -> int:
-    """Menghitung nilai 32-bit subnet mask dari prefix CIDR.
+    """Menghitung 32-bit integer subnet mask dari prefix CIDR.
 
     Konsep Jaringan (TKJ):
-    Prefix /P berarti P bit pertama bernilai biner 1 dan (32 - P) bit sisanya bernilai 0.
-    Contoh: /24 berarti 24 bit angka 1 (11111111.11111111.11111111.00000000) = 255.255.255.0.
+    Prefix /N berarti N bit pertama bernilai 1 (network bits) dan sisanya bernilai 0
+    (host bits). Misalnya /24 berarti 24 bit bernilai 1.
 
     Args:
-        prefix (int): Panjang prefix (0 s.d. 32).
+        prefix (int): Nilai prefix CIDR (0 s.d. 32).
 
     Returns:
-        int: Subnet mask dalam 32-bit unsigned integer.
+        int: Subnet mask dalam bentuk 32-bit unsigned integer.
     """
     if prefix == 0:
         return 0
@@ -77,25 +79,26 @@ def prefix_to_mask_int(prefix: int) -> int:
 
 
 # ==============================================================================
-# 2. VALIDASI KETAT SESUAI SPESIFIKASI (BAGIAN 2 SPEC.MD)
+# 2. VALIDASI KETAT INPUT IP & PREFIX
 # ==============================================================================
 
 def validate_ip(ip: str) -> None:
-    """Memvalidasi format alamat IPv4 dengan aturan ketat.
+    """Memvalidasi format string IPv4 secara ketat sesuai spesifikasi (SPEC.md 2.1).
 
-    Aturan Validasi:
-    1. Tipe data wajib string dan tidak boleh kosong.
-    2. Dilarang mengandung karakter spasi (tidak boleh di-trim secara implisit).
-    3. Tepat terdiri dari 4 oktet desimal yang dipisahkan titik.
-    4. Setiap oktet hanya boleh berisi digit angka desimal (0-9).
-    5. Setiap oktet harus bernilai antara 0 sampai 255.
-    6. Dilarang memiliki leading zero (angka '0' sah, tetapi '01' atau '001' ditolak).
+    Aturan:
+    1. Tipe data harus string.
+    2. Tidak boleh ada spasi (di awal, akhir, atau tengah - tidak boleh di-strip).
+    3. Tepat 4 oktet desimal yang dipisahkan oleh '.'.
+    4. Setiap oktet hanya berisi digit desimal (0-9).
+    5. Setiap oktet bernilai antara 0 sampai 255.
+    6. Leading zero dilarang (misal '01', '001' tidak sah; '0' sah).
+    7. String kosong ditolak.
 
     Args:
-        ip (str): String IP yang akan diperiksa.
+        ip (str): String alamat IPv4.
 
     Raises:
-        ValueError: Jika format IP melanggar salah satu aturan validasi.
+        ValueError: Jika format alamat IP melanggar salah satu aturan di atas.
     """
     if not isinstance(ip, str):
         raise ValueError("Alamat IP harus berupa string")
@@ -108,36 +111,46 @@ def validate_ip(ip: str) -> None:
 
     parts = ip.split(".")
     if len(parts) != 4:
-        raise ValueError(f"Alamat IP harus terdiri dari tepat 4 oktet, ditemukan {len(parts)}")
+        raise ValueError(
+            f"Alamat IP harus terdiri dari tepat 4 oktet, diterima {len(parts)} oktet"
+        )
 
-    for i, part in enumerate(parts, start=1):
+    for idx, part in enumerate(parts, start=1):
         if part == "":
-            raise ValueError(f"Oktet ke-{i} tidak boleh kosong")
+            raise ValueError(f"Oktet ke-{idx} tidak boleh kosong")
 
         if not part.isdigit():
-            raise ValueError(f"Oktet ke-{i} ('{part}') bukan angka yang valid")
+            raise ValueError(
+                f"Oktet ke-{idx} ('{part}') mengandung karakter non-numerik"
+            )
 
-        # Cek leading zero (contoh: "01", "001")
         if len(part) > 1 and part.startswith("0"):
-            raise ValueError(f"Oktet ke-{i} ('{part}') tidak boleh memiliki leading zero")
+            raise ValueError(
+                f"Oktet ke-{idx} ('{part}') memiliki leading zero yang dilarang"
+            )
 
         val = int(part)
         if val < 0 or val > 255:
-            raise ValueError(f"Oktet ke-{i} bernilai {val}, melebihi batas yang diperbolehkan (0-255)")
+            raise ValueError(
+                f"Oktet ke-{idx} bernilai {val}, melebihi rentang yang diizinkan (0-255)"
+            )
 
 
-def validate_prefix(prefix: int) -> None:
-    """Memvalidasi prefix CIDR agar berada di rentang 0 sampai 32.
+def validate_prefix(prefix: Any) -> int:
+    """Memvalidasi nilai prefix subnet mask secara ketat (SPEC.md 2.2).
 
-    Catatan Khusus Python:
-    Di Python, bool adalah subclass dari int (`isinstance(True, int) == True`).
-    Fungsi ini secara eksplisit menolak tipe boolean agar tidak menyamar sebagai int.
+    Aturan:
+    1. Nilai harus berupa integer (bukan boolean, bukan float).
+    2. Berada dalam rentang 0 sampai 32 (inklusif).
 
     Args:
-        prefix (int): Nilai prefix CIDR.
+        prefix (Any): Nilai prefix yang akan divalidasi.
+
+    Returns:
+        int: Nilai prefix yang telah diverifikasi sebagai integer.
 
     Raises:
-        ValueError: Jika prefix berupa boolean, bukan int, atau di luar rentang 0-32.
+        ValueError: Jika tipe atau rentang prefix tidak valid.
     """
     if isinstance(prefix, bool):
         raise ValueError("Prefix tidak boleh berupa nilai boolean")
@@ -146,161 +159,83 @@ def validate_prefix(prefix: int) -> None:
         raise ValueError("Prefix harus berupa bilangan bulat (integer)")
 
     if prefix < 0 or prefix > 32:
-        raise ValueError(f"Prefix /{prefix} tidak valid. Harus berada dalam rentang 0 sampai 32")
-
-
-def validate_vlsm_params(network_cidr: str, kebutuhan_host: list[int]) -> tuple[str, int, list[int]]:
-    """Memvalidasi parameter alokasi VLSM secara ketat.
-
-    Aturan Validasi:
-    1. network_cidr harus string berformat `<ip>/<prefix>` tanpa spasi.
-    2. Bagian IP dan prefix harus lulus validasi IPv4 dan CIDR.
-    3. IP pada network_cidr WAJIB merupakan Network Address yang sah (ip & mask == ip).
-       Jika user memasukkan host address (misal 192.168.1.5/24), input harus ditolak.
-    4. kebutuhan_host harus berupa list tidak kosong.
-    5. Setiap elemen kebutuhan_host harus integer >= 1 (bukan bool, bukan float, bukan <= 0).
-
-    Args:
-        network_cidr (str): Format subnet CIDR, contoh "192.168.1.0/24".
-        kebutuhan_host (list[int]): Daftar kebutuhan host tiap segmen.
-
-    Returns:
-        tuple[str, int, list[int]]: (base_ip, base_prefix, valid_kebutuhan_list)
-
-    Raises:
-        ValueError: Jika salah satu parameter tidak valid.
-    """
-    if not isinstance(network_cidr, str):
-        raise ValueError("network_cidr harus berupa string")
-
-    if network_cidr == "":
-        raise ValueError("network_cidr tidak boleh kosong")
-
-    if " " in network_cidr:
-        raise ValueError("network_cidr tidak boleh mengandung karakter spasi")
-
-    if "/" not in network_cidr:
-        raise ValueError("Format network_cidr harus berupa <ip>/<prefix>")
-
-    parts = network_cidr.split("/")
-    if len(parts) != 2:
-        raise ValueError("Format network_cidr harus tepat terdiri dari satu karakter '/'")
-
-    ip_str, prefix_str = parts[0], parts[1]
-
-    # Validasi bagian IP
-    validate_ip(ip_str)
-
-    # Validasi bagian Prefix
-    if prefix_str == "":
-        raise ValueError("Prefix CIDR tidak boleh kosong")
-    if not prefix_str.isdigit():
-        raise ValueError("Prefix CIDR harus berupa bilangan bulat positif")
-    if len(prefix_str) > 1 and prefix_str.startswith("0"):
-        raise ValueError("Prefix CIDR tidak boleh memiliki leading zero")
-
-    prefix_val = int(prefix_str)
-    validate_prefix(prefix_val)
-
-    # Cek keabsahan Network Address (ip & mask == ip)
-    ip_int = ip_to_int(ip_str)
-    mask_int = prefix_to_mask_int(prefix_val)
-    expected_net_int = (ip_int & mask_int) & 0xFFFFFFFF
-
-    if ip_int != expected_net_int:
-        sah_ip = int_to_ip(expected_net_int)
         raise ValueError(
-            f"Alamat '{ip_str}' bukan network address yang sah untuk prefix /{prefix_val}. "
-            f"Network address yang sah adalah '{sah_ip}'"
+            f"Prefix bernilai {prefix}, berada di luar rentang valid (0 s.d. 32)"
         )
 
-    # Validasi kebutuhan_host
-    if isinstance(kebutuhan_host, bool) or not isinstance(kebutuhan_host, list):
-        raise ValueError("kebutuhan_host harus berupa list")
-
-    if len(kebutuhan_host) == 0:
-        raise ValueError("Daftar kebutuhan_host tidak boleh kosong")
-
-    for idx, item in enumerate(kebutuhan_host):
-        if isinstance(item, bool):
-            raise ValueError(f"Elemen kebutuhan_host pada indeks {idx} tidak boleh bernilai boolean")
-        if not isinstance(item, int):
-            raise ValueError(f"Elemen kebutuhan_host pada indeks {idx} ('{item}') harus berupa bilangan bulat")
-        if item < 1:
-            raise ValueError(f"Kebutuhan host pada indeks {idx} bernilai {item}, harus minimal 1 host")
-
-    return ip_str, prefix_val, kebutuhan_host
+    return prefix
 
 
 # ==============================================================================
-# 3. FUNGSI LOGIKA MURNI (CORE NETWORKING ENGINE)
+# 3. FUNGSI LOGIKA MURNI: hitung_subnet
 # ==============================================================================
 
-def hitung_subnet(ip: str, prefix: int) -> dict[str, Any]:
-    """Menghitung parameter subnetting IPv4 lengkap berdasarkan IP dan prefix CIDR.
+def hitung_subnet(ip: str, prefix: int) -> dict:
+    """Menghitung parameter subnetting IPv4 menggunakan operasi bitwise 32-bit.
 
-    Mendukung seluruh rentang prefix dari /0 sampai /32 dengan penanganan khusus:
-    - Prefix /0 s.d. /30 : Subnetting standar dengan 1 network IP dan 1 broadcast IP.
-    - Prefix /31        : Standar RFC 3021 (Point-to-Point links, 2 usable host, tanpa broadcast).
-    - Prefix /32        : Host Route tunggal (1 host, tanpa broadcast).
-
-    Rumus Matematika Biner (TKJ):
-    - Subnet Mask = 0xFFFFFFFF << (32 - prefix)
-    - Wildcard Mask = ~Subnet Mask
-    - Network Address = IP & Subnet Mask
-    - Broadcast Address = Network Address | Wildcard Mask
-    - Host Usable (/0 s.d. /30) = 2^(32 - prefix) - 2
+    Rumus & Konsep Jaringan (TKJ):
+    - Subnet Mask = N bit 1 diikuti (32 - N) bit 0.
+    - Network Address = IP bitwise-AND Subnet Mask (`ip & mask`).
+    - Broadcast Address = Network Address bitwise-OR Wildcard Mask (`network | (~mask)`).
+    - Host Pertama = Network Address + 1 (kecuali /31 dan /32).
+    - Host Terakhir = Broadcast Address - 1 (kecuali /31 dan /32).
+    - Usable Hosts:
+      * /0 s.d. /30 : 2^(32 - prefix) - 2
+      * /31         : 2 host (RFC 3021 untuk link point-to-point tanpa broadcast terpisah)
+      * /32         : 1 host (Host route tunggal)
 
     Args:
-        ip (str): Alamat IPv4 (contoh "192.168.1.10").
-        prefix (int): Prefix subnetting CIDR (0 s.d. 32).
+        ip (str): Alamat IPv4 dotted-decimal.
+        prefix (int): Nilai prefix CIDR (0 s.d. 32).
 
     Returns:
-        dict: Berisi kunci:
-            - mask (str): Subnet mask dotted-decimal (misal "255.255.255.0")
-            - network (str): Alamat network (misal "192.168.1.0")
-            - broadcast (str | None): Alamat broadcast (misal "192.168.1.255" atau None)
-            - first_host (str): Alamat host pertama yang dapat digunakan
-            - last_host (str): Alamat host terakhir yang dapat digunakan
-            - usable_hosts (int): Jumlah host yang dapat digunakan
+        dict: Dictionary berisi `mask`, `network`, `broadcast`, `first_host`,
+              `last_host`, dan `usable_hosts`.
+
+    Raises:
+        ValueError: Jika input IP atau prefix tidak valid.
     """
     validate_ip(ip)
-    validate_prefix(prefix)
+    val_prefix = validate_prefix(prefix)
 
     ip_int = ip_to_int(ip)
-    mask_int = prefix_to_mask_int(prefix)
+    mask_int = prefix_to_mask_int(val_prefix)
+
+    # Operasi Bitwise Inti:
+    # 1. Network Address: IP AND Mask
+    network_int = (ip_int & mask_int) & 0xFFFFFFFF
+    # 2. Wildcard Mask: Negasi bitwise dari Subnet Mask
     wildcard_int = (~mask_int) & 0xFFFFFFFF
-    net_int = (ip_int & mask_int) & 0xFFFFFFFF
-    bcast_int = (net_int | wildcard_int) & 0xFFFFFFFF
+    # 3. Broadcast Address: Network OR Wildcard
+    broadcast_int = (network_int | wildcard_int) & 0xFFFFFFFF
 
     mask_str = int_to_ip(mask_int)
-    net_str = int_to_ip(net_int)
-    bcast_str = int_to_ip(bcast_int)
+    network_str = int_to_ip(network_int)
 
-    # Kasus Khusus 1: Prefix /32 (Single Host Route)
-    if prefix == 32:
+    # Kasus Khusus Prefix /31 (RFC 3021 Point-to-Point Links)
+    if val_prefix == 31:
         return {
             "mask": mask_str,
-            "network": net_str,
+            "network": network_str,
             "broadcast": None,
-            "first_host": ip,
-            "last_host": ip,
-            "usable_hosts": 1,
-        }
-
-    # Kasus Khusus 2: Prefix /31 (RFC 3021 - Point-to-Point link)
-    if prefix == 31:
-        return {
-            "mask": mask_str,
-            "network": net_str,
-            "broadcast": None,
-            "first_host": net_str,
-            "last_host": int_to_ip(net_int + 1),
+            "first_host": network_str,
+            "last_host": int_to_ip((network_int + 1) & 0xFFFFFFFF),
             "usable_hosts": 2,
         }
 
-    # Kasus Khusus 3: Prefix /0 (Default Route - Seluruh Ruang IPv4)
-    if prefix == 0:
+    # Kasus Khusus Prefix /32 (Single Host Route)
+    if val_prefix == 32:
+        return {
+            "mask": mask_str,
+            "network": network_str,
+            "broadcast": None,
+            "first_host": network_str,
+            "last_host": network_str,
+            "usable_hosts": 1,
+        }
+
+    # Kasus Khusus Prefix /0 (Default Route 0.0.0.0/0)
+    if val_prefix == 0:
         return {
             "mask": "0.0.0.0",
             "network": "0.0.0.0",
@@ -310,185 +245,208 @@ def hitung_subnet(ip: str, prefix: int) -> dict[str, Any]:
             "usable_hosts": 4294967294,
         }
 
-    # Kasus Standar: Prefix /1 s.d. /30
-    usable_hosts = (1 << (32 - prefix)) - 2
-    first_host_str = int_to_ip(net_int + 1)
-    last_host_str = int_to_ip(bcast_int - 1)
+    # Kasus Standar Prefix /1 sampai /30
+    broadcast_str = int_to_ip(broadcast_int)
+    first_host_str = int_to_ip((network_int + 1) & 0xFFFFFFFF)
+    last_host_str = int_to_ip((broadcast_int - 1) & 0xFFFFFFFF)
+    usable_hosts = (1 << (32 - val_prefix)) - 2
 
     return {
         "mask": mask_str,
-        "network": net_str,
-        "broadcast": bcast_str,
+        "network": network_str,
+        "broadcast": broadcast_str,
         "first_host": first_host_str,
         "last_host": last_host_str,
         "usable_hosts": usable_hosts,
     }
 
 
-def alokasi_vlsm(network_cidr: str, kebutuhan_host: list[int]) -> list[dict[str, Any]]:
-    """Mengalokasikan subnet secara hierarkis menggunakan algoritma VLSM.
+# ==============================================================================
+# 4. FUNGSI LOGIKA MURNI: alokasi_vlsm
+# ==============================================================================
 
-    Alur Algoritma VLSM (TKJ):
-    1. Urutkan daftar kebutuhan host dari yang terbesar ke terkecil (Descending).
-       Hal ini penting untuk menghindari fragmentasi ruang alamat IP.
-    2. Untuk setiap kebutuhan H, cari ukuran blok pangkat 2 terkecil yang >= (H + 2).
-       (+2 dialokasikan untuk 1 Network IP dan 1 Broadcast IP).
-    3. Batas minimal subnet adalah /30 (blok 4 IP, menampung 2 host usable).
-       Jika kebutuhan 1 host, tetap diberikan blok /30.
-    4. Alokasikan subnet berturut-turut mulai dari network awal.
-    5. Jika total kebutuhan melebihi kapasitas network induk, raise ValueError (Overflow).
+def validate_vlsm_params(network_cidr: str, kebutuhan_host: list[int]) -> tuple[str, int]:
+    """Memvalidasi parameter alokasi VLSM secara ketat (SPEC.md 2.3)."""
+    if not isinstance(network_cidr, str):
+        raise ValueError("Network CIDR harus berupa string")
 
-    Args:
-        network_cidr (str): Network address induk dan prefix, contoh "192.168.1.0/24".
-        kebutuhan_host (list[int]): Daftar kebutuhan host, contoh [100, 50, 20, 2].
+    if "/" not in network_cidr:
+        raise ValueError("Format network CIDR tidak valid, gunakan format '<ip>/<prefix>'")
 
-    Returns:
-        list[dict]: Daftar blok alokasi subnet beserta seluruh properti subnetting.
+    parts = network_cidr.split("/")
+    if len(parts) != 2:
+        raise ValueError("Format network CIDR harus tepat '<ip>/<prefix>'")
 
-    Raises:
-        ValueError: Jika input tidak valid atau kapasitas network induk tidak mencukupi.
-    """
-    base_ip_str, base_prefix, valid_kebutuhan = validate_vlsm_params(network_cidr, kebutuhan_host)
+    ip_part, prefix_part = parts[0], parts[1]
+    validate_ip(ip_part)
 
-    # 1. Urutkan dari kebutuhan terbesar ke terkecil
-    sorted_kebutuhan = sorted(valid_kebutuhan, reverse=True)
+    if prefix_part == "" or " " in prefix_part or "." in prefix_part:
+        raise ValueError("Prefix CIDR harus berupa bilangan bulat positif")
 
-    base_net_int = ip_to_int(base_ip_str)
-    base_capacity = 1 << (32 - base_prefix) if base_prefix < 32 else 1
-    base_end_int = base_net_int + base_capacity
+    try:
+        prefix = int(prefix_part)
+    except ValueError:
+        raise ValueError(f"Prefix CIDR '{prefix_part}' bukan angka integer valid")
 
-    current_net_int = base_net_int
-    hasil_alokasi: list[dict[str, Any]] = []
+    validate_prefix(prefix)
 
-    for h in sorted_kebutuhan:
-        # Tentukan ukuran blok (pangkat 2 terkecil >= h + 2, batas minimal 4 [/30])
-        needed_ips = h + 2
+    ip_int = ip_to_int(ip_part)
+    mask_int = prefix_to_mask_int(prefix)
+    if (ip_int & mask_int) != ip_int:
+        raise ValueError(
+            f"Alamat IP '{ip_part}' bukan valid network address untuk prefix /{prefix}. "
+            f"Gunakan alamat network yang sah."
+        )
+
+    if not isinstance(kebutuhan_host, list):
+        raise ValueError("Kebutuhan host harus berupa list")
+
+    if len(kebutuhan_host) == 0:
+        raise ValueError("Daftar kebutuhan host tidak boleh kosong")
+
+    for idx, req in enumerate(kebutuhan_host, start=1):
+        if isinstance(req, bool) or not isinstance(req, int):
+            raise ValueError(f"Kebutuhan host ke-{idx} harus berupa integer")
+        if req <= 0:
+            raise ValueError(
+                f"Kebutuhan host ke-{idx} bernilai {req}, harus berupa integer >= 1"
+            )
+
+    return ip_part, prefix
+
+
+def alokasi_vlsm(network_cidr: str, kebutuhan_host: list[int]) -> list[dict]:
+    """Mengalokasikan blok-blok subnet variabel (VLSM) secara hierarkis."""
+    base_ip, base_prefix = validate_vlsm_params(network_cidr, kebutuhan_host)
+
+    sorted_kebutuhan = sorted(kebutuhan_host, reverse=True)
+
+    base_network_int = ip_to_int(base_ip)
+    total_parent_ips = 1 << (32 - base_prefix)
+    current_offset = 0
+
+    hasil_alokasi = []
+
+    for req in sorted_kebutuhan:
+        needed_ips = req + 2
         block_size = 4
         while block_size < needed_ips:
             block_size <<= 1
 
-        # Hitung prefix baru: 32 - log2(block_size)
-        sub_prefix = 32 - (block_size.bit_length() - 1)
+        sub_prefix = 32
+        temp_size = block_size
+        while temp_size > 1:
+            temp_size >>= 1
+            sub_prefix -= 1
 
-        # Cek kapasitas sisa (Deteksi Overflow)
-        if current_net_int + block_size > base_end_int:
-            raise ValueError("Kapasitas network tidak mencukupi untuk alokasi VLSM yang diminta")
+        if current_offset + block_size > total_parent_ips:
+            raise ValueError(
+                f"Kapasitas network induk {network_cidr} ({total_parent_ips} IP) "
+                f"tidak mencukupi untuk memenuhi kebutuhan host yang diminta."
+            )
 
-        # Hitung rincian subnet cabang
-        current_ip_str = int_to_ip(current_net_int)
-        sub_detail = hitung_subnet(current_ip_str, sub_prefix)
+        sub_network_int = (base_network_int + current_offset) & 0xFFFFFFFF
+        sub_network_ip = int_to_ip(sub_network_int)
+
+        subnet_detail = hitung_subnet(sub_network_ip, sub_prefix)
 
         alokasi_item = {
-            "kebutuhan": h,
-            "network_cidr": f"{sub_detail['network']}/{sub_prefix}",
-            "mask": sub_detail["mask"],
-            "network": sub_detail["network"],
-            "broadcast": sub_detail["broadcast"],
-            "first_host": sub_detail["first_host"],
-            "last_host": sub_detail["last_host"],
-            "usable_hosts": sub_detail["usable_hosts"],
+            "kebutuhan": req,
+            "network_cidr": f"{sub_network_ip}/{sub_prefix}",
+            **subnet_detail,
         }
         hasil_alokasi.append(alokasi_item)
 
-        # Majukan penunjuk network ke blok berikutnya
-        current_net_int += block_size
+        current_offset += block_size
 
     return hasil_alokasi
 
 
 # ==============================================================================
-# 4. FASTAPI WEB APPLICATION & ENDPOINTS
+# 5. APLIKASI FASTAPI & ENDPOINT ROUTE
 # ==============================================================================
 
 app = FastAPI(
     title="Kalkulator Subnet & VLSM IPv4",
-    description="Engine kalkulasi subnetting IPv4 dan alokasi VLSM berbasis FastAPI dengan validasi ketat.",
+    description="API Edukasi Jaringan Komputer untuk Perhitungan Subnetting dan VLSM",
     version="1.0.0",
 )
 
 
-@app.get("/")
-def get_root():
-    """Menyajikan halaman antarmuka visual kalkulator web (index.html)."""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    html_file = os.path.join(current_dir, "index.html")
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Mengubah error validasi default FastAPI (HTTP 422) menjadi HTTP 400 dengan field 'detail'."""
+    first_error = exc.errors()[0]
+    msg = first_error.get("msg", "Format input tidak valid")
+    return JSONResponse(
+        status_code=400,
+        content={"detail": msg},
+    )
 
-    if not os.path.exists(html_file):
-        raise HTTPException(status_code=404, detail="File 'index.html' tidak ditemukan")
 
-    return FileResponse(html_file, media_type="text/html")
+@app.get("/", response_class=FileResponse)
+def read_root():
+    """Menyajikan halaman antarmuka web index.html."""
+    index_file = os.path.join(os.path.dirname(__file__), "index.html")
+    if not os.path.exists(index_file):
+        index_file = "index.html"
+    return FileResponse(index_file, media_type="text/html")
 
 
 @app.get("/api/subnet")
-def api_get_subnet(ip: str | None = None, prefix: str | None = None):
-    """Endpoint API untuk menghitung parameter subnetting IPv4.
+def api_subnet(request: Request):
+    """Endpoint untuk melakukan perhitungan subnetting IPv4."""
+    ip = request.query_params.get("ip")
+    prefix_raw = request.query_params.get("prefix")
 
-    Query Parameters:
-        ip (str): Alamat IPv4 (contoh: "192.168.1.1").
-        prefix (str): Prefix CIDR berupa string (contoh: "24").
-    """
-    if ip is None:
-        raise HTTPException(status_code=400, detail="Parameter query 'ip' wajib diisi")
-
-    if prefix is None:
-        raise HTTPException(status_code=400, detail="Parameter query 'prefix' wajib diisi")
-
-    # Validasi format prefix string untuk menangkap spasi, bilangan desimal/float, dan minus
-    if not isinstance(prefix, str) or prefix == "":
-        raise HTTPException(status_code=400, detail="Parameter 'prefix' tidak boleh kosong")
-
-    if " " in prefix:
-        raise HTTPException(status_code=400, detail="Prefix tidak boleh mengandung spasi")
-
-    if prefix.startswith("-"):
-        raise HTTPException(status_code=400, detail="Prefix tidak boleh negatif")
-
-    if not prefix.isdigit():
-        raise HTTPException(status_code=400, detail="Prefix harus berupa bilangan bulat antara 0 sampai 32")
-
-    if len(prefix) > 1 and prefix.startswith("0"):
-        raise HTTPException(status_code=400, detail="Prefix tidak boleh memiliki leading zero")
+    if ip is None or prefix_raw is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Query parameter 'ip' dan 'prefix' wajib disertakan",
+        )
 
     try:
-        prefix_int = int(prefix)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Prefix tidak valid")
+        validate_ip(ip)
 
-    try:
-        result = hitung_subnet(ip, prefix_int)
-        return result
+        if prefix_raw == "" or " " in prefix_raw:
+            raise ValueError("Prefix tidak boleh kosong atau mengandung karakter spasi")
+
+        if "." in prefix_raw:
+            raise ValueError("Prefix harus berupa bilangan bulat, bukan bilangan desimal")
+
+        try:
+            prefix = int(prefix_raw)
+        except ValueError:
+            raise ValueError(f"Prefix '{prefix_raw}' bukan representasi integer yang valid")
+
+        validate_prefix(prefix)
+
+        return hitung_subnet(ip, prefix)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
 
 
 @app.post("/api/vlsm")
-async def api_post_vlsm(request: Request):
-    """Endpoint API untuk menghitung alokasi VLSM (Variable Length Subnet Masking).
-
-    Request Body (JSON):
-        network (str): CIDR network address induk (contoh: "192.168.1.0/24").
-        kebutuhan_host (list[int]): Daftar kebutuhan host (contoh: [100, 50, 20, 2]).
-    """
+async def api_vlsm(request: Request):
+    """Endpoint untuk melakukan alokasi subnet VLSM bertingkat."""
     try:
-        payload = await request.json()
+        body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Format payload harus berupa JSON yang valid")
+        raise HTTPException(status_code=400, detail="Payload body harus berupa JSON yang valid")
 
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="Payload JSON harus berupa objek (dictionary)")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Payload JSON harus berupa object/dictionary")
 
-    if "network" not in payload:
-        raise HTTPException(status_code=400, detail="Field 'network' wajib ada dalam payload")
+    if "network" not in body or "kebutuhan_host" not in body:
+        raise HTTPException(
+            status_code=400,
+            detail="Payload JSON wajib memiliki atribut 'network' dan 'kebutuhan_host'",
+        )
 
-    if "kebutuhan_host" not in payload:
-        raise HTTPException(status_code=400, detail="Field 'kebutuhan_host' wajib ada dalam payload")
-
-    network = payload["network"]
-    kebutuhan_host = payload["kebutuhan_host"]
+    network = body.get("network")
+    kebutuhan_host = body.get("kebutuhan_host")
 
     try:
-        result = alokasi_vlsm(network, kebutuhan_host)
-        return result
+        return alokasi_vlsm(network, kebutuhan_host)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
-
