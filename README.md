@@ -155,4 +155,24 @@ docker stop subnet-app
 docker rm subnet-app
 ```
 
+---
+
+## 🌐 Deploy
+
+Aplikasi Kalkulator Subnet & VLSM IPv4 ini telah di-deploy ke lingkungan produksi Vercel:
+
+- **URL Produksi**: [https://subnet-calculator-sqa-woad.vercel.app](https://subnet-calculator-sqa-woad.vercel.app)
+
+### Cara Menjalankan Smoke Test ke URL Produksi
+Jalankan skrip smoke test otomatis untuk memverifikasi keandalan deployment produksi:
+
+```bash
+uv run python scripts/smoke_test.py https://subnet-calculator-sqa-woad.vercel.app
+```
+atau menggunakan Python standar:
+```bash
+python scripts/smoke_test.py https://subnet-calculator-sqa-woad.vercel.app
+```
+
+
 
